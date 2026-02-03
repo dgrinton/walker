@@ -238,7 +238,6 @@ class GPSPlayback:
         self.speed = speed
         self.trace: list[dict] = []
         self.index = 0
-        self.start_time = time.time()
         self.last_location: Optional[Location] = None
         self.consecutive_failures = 0
 
@@ -249,17 +248,13 @@ class GPSPlayback:
         print(f"Loaded GPS trace from {playback_path} ({len(self.trace)} entries)")
 
     def get_location(self, timeout: int = 30) -> Optional[Location]:
-        """Get next location from trace, respecting timing"""
+        """Get next location from trace sequentially"""
         if self.index >= len(self.trace):
             return None
 
-        # Wait for correct time
-        elapsed = (time.time() - self.start_time) * self.speed
+        # Return entries one at a time (speed is handled by main loop sleep)
         entry = self.trace[self.index]
-
-        while self.index < len(self.trace) and self.trace[self.index]["elapsed"] <= elapsed:
-            entry = self.trace[self.index]
-            self.index += 1
+        self.index += 1
 
         if entry["location"]:
             location = Location.from_dict(entry["location"])
@@ -269,6 +264,24 @@ class GPSPlayback:
         else:
             self.consecutive_failures += 1
             return None
+
+    def get_poll_interval(self) -> float:
+        """Get the interval to wait between polls based on trace timing and speed"""
+        if self.index <= 0 or self.index >= len(self.trace):
+            return CONFIG["gps_poll_interval"] / self.speed
+
+        # Calculate time delta between current and previous entry
+        prev_elapsed = self.trace[self.index - 1].get("elapsed", 0)
+        curr_elapsed = self.trace[self.index].get("elapsed", 0)
+        delta = curr_elapsed - prev_elapsed
+
+        # Apply speed multiplier and clamp to reasonable range
+        interval = delta / self.speed
+        return max(0.1, min(interval, 5.0))
+
+    def is_finished(self) -> bool:
+        """Check if playback is complete"""
+        return self.index >= len(self.trace)
 
     def get_status(self) -> str:
         progress = f"{self.index}/{len(self.trace)}"
@@ -710,7 +723,7 @@ class RoutePlanner:
         return scored[0][0] if scored else None
 
     def get_direction_instruction(self, from_node: int, current_node: int, to_node: int) -> str:
-        """Generate spoken direction instruction"""
+        """Generate spoken direction instruction - always includes street name when known"""
 
         # Get bearings
         from_loc = self.graph.get_node_location(from_node)
@@ -734,16 +747,11 @@ class RoutePlanner:
         # Get segment info
         segment = self.graph.get_segment(current_node, to_node)
 
-        # For simple intersections, just say the direction
-        num_options = len(self.graph.get_neighbors(current_node))
-
-        if num_options <= 3 and rel_dir in ["left", "right", "straight"]:
-            return rel_dir
-
-        # For complex intersections, add street name or compass heading
+        # Always include street name when available
         if segment and segment.name:
             return f"{rel_dir} onto {segment.name}"
         else:
+            # No street name - add compass heading for clarity
             compass = bearing_to_compass(outgoing_bearing)
             return f"{rel_dir}, heading {compass}"
 
@@ -904,9 +912,16 @@ class Walker:
             )
             compass = bearing_to_compass(bearing)
 
-            self.audio.speak(f"Walk started. Head {compass}")
-            self.logger.log(f"Walk started, head {compass}", {"next_node": self.next_node})
-            print(f"Head {compass} toward node {self.next_node}")
+            # Include street name if available
+            segment = self.graph.get_segment(self.current_node, self.next_node)
+            if segment and segment.name:
+                direction = f"Head {compass} on {segment.name}"
+            else:
+                direction = f"Head {compass}"
+
+            self.audio.speak(f"Walk started. {direction}")
+            self.logger.log(f"Walk started, {direction}", {"next_node": self.next_node, "street": segment.name if segment else None})
+            print(f"{direction} toward node {self.next_node}")
 
         self.walk_start_time = time.time()
         self.last_audio_update = time.time()
@@ -929,7 +944,7 @@ class Walker:
 
         self.current_location = location
 
-        # Find nearest node
+        # Find nearest node to current GPS position
         nearest = self.graph.find_nearest_node(location.lat, location.lon)
         if not nearest:
             return True
@@ -939,19 +954,19 @@ class Walker:
             location.lat, location.lon, nearest_loc[0], nearest_loc[1]
         )
 
-        # Check if we've reached the next node
+        # Calculate distance to next node if we have one
+        dist_to_next = float("inf")
         if self.next_node:
             next_loc = self.graph.get_node_location(self.next_node)
             dist_to_next = haversine_distance(
                 location.lat, location.lon, next_loc[0], next_loc[1]
             )
 
-            # Approaching - give direction warning
+            # Approaching next node - give direction warning
             if (dist_to_next < CONFIG["direction_warning_distance"] and
                 not self.direction_given and
                 self.graph.is_intersection(self.next_node)):
 
-                # Calculate and announce next direction
                 after_next = self.planner.choose_next_direction(
                     self.next_node, self.current_node
                 )
@@ -964,49 +979,60 @@ class Walker:
                     print(f"Direction: {instruction}")
                     self.direction_given = True
 
-            # Arrived at next node
-            if dist_to_next < CONFIG["intersection_arrival_radius"]:
-                # Record segment walked
-                segment = self.graph.get_segment(self.current_node, self.next_node)
-                if segment:
-                    self.history.record_segment(segment.id)
-                    self.planner.walked_distance += segment.length
-                    self.segments_walked += 1
-                    self.logger.log(f"Walked segment", {
-                        "segment": segment.id,
-                        "length": segment.length,
-                        "total": self.planner.walked_distance,
-                        "name": segment.name
-                    })
-                    print(f"Walked {segment.length:.0f}m, total: {self.planner.walked_distance:.0f}m")
+        # Determine what happened:
+        # 1. Arrived at expected next_node
+        # 2. Moved to a different node (deviation)
+        # 3. Still at current node (no movement)
 
-                # Check if walk is complete
-                if (self.next_node == self.planner.start_node and
-                    self.planner.walked_distance >= self.planner.target_distance * 0.8):
-                    self.audio.speak("Walk complete")
-                    self.logger.log("Walk complete")
-                    print("Walk complete!")
-                    return False
+        arrived_at_next = self.next_node and dist_to_next < CONFIG["intersection_arrival_radius"]
+        moved_to_different = nearest != self.current_node and dist_to_nearest < CONFIG["intersection_arrival_radius"]
 
-                # Move to next node
-                self.previous_node = self.current_node
-                self.current_node = self.next_node
-                self.next_node = self.planner.choose_next_direction(
-                    self.current_node, self.previous_node
-                )
-                self.direction_given = False
+        if arrived_at_next:
+            # Arrived at expected next node
+            segment = self.graph.get_segment(self.current_node, self.next_node)
+            if segment:
+                self.history.record_segment(segment.id)
+                self.planner.walked_distance += segment.length
+                self.segments_walked += 1
+                self.logger.log(f"Walked segment", {
+                    "segment": segment.id,
+                    "length": segment.length,
+                    "total": self.planner.walked_distance,
+                    "name": segment.name
+                })
+                print(f"Walked {segment.length:.0f}m, total: {self.planner.walked_distance:.0f}m")
 
-                if not self.next_node:
-                    self.logger.log("No path available")
-                    print("No path available")
-                    self.audio.speak("No path available")
-                    return False
+            # Check if walk is complete
+            if (self.next_node == self.planner.start_node and
+                self.planner.walked_distance >= self.planner.target_distance * 0.8):
+                self.audio.speak("Walk complete")
+                self.logger.log("Walk complete")
+                print("Walk complete!")
+                return False
 
-        # Check if user deviated
-        elif nearest != self.current_node:
-            # User went somewhere unexpected - adapt
-            self.logger.log("Deviation detected", {"expected": self.current_node, "actual": nearest})
-            print(f"Deviation detected: expected {self.current_node}, now at {nearest}")
+            # Move to next node
+            self.previous_node = self.current_node
+            self.current_node = self.next_node
+            self.next_node = self.planner.choose_next_direction(
+                self.current_node, self.previous_node
+            )
+            self.direction_given = False
+
+            if not self.next_node:
+                self.logger.log("No path available")
+                print("No path available")
+                self.audio.speak("No path available")
+                return False
+
+        elif moved_to_different:
+            # User moved to a node we didn't expect (deviation)
+            self.logger.log("Moved to node", {
+                "from": self.current_node,
+                "to": nearest,
+                "expected": self.next_node,
+                "dist_to_nearest": dist_to_nearest
+            })
+            print(f"Moved to node {nearest} (was at {self.current_node}, expected {self.next_node})")
 
             # Record the segment they actually walked if it exists
             segment = self.graph.get_segment(self.current_node, nearest)
@@ -1014,8 +1040,14 @@ class Walker:
                 self.history.record_segment(segment.id)
                 self.planner.walked_distance += segment.length
                 self.segments_walked += 1
+                self.logger.log(f"Walked segment (deviation)", {
+                    "segment": segment.id,
+                    "length": segment.length,
+                    "total": self.planner.walked_distance
+                })
+                print(f"Walked {segment.length:.0f}m (deviation), total: {self.planner.walked_distance:.0f}m")
 
-            # Update position and recalculate
+            # Update position and recalculate route
             self.previous_node = self.current_node
             self.current_node = nearest
             self.next_node = self.planner.choose_next_direction(
@@ -1024,7 +1056,6 @@ class Walker:
             self.direction_given = False
 
             if self.next_node:
-                # Give new direction
                 after_next = self.planner.choose_next_direction(
                     self.next_node, self.current_node
                 )
@@ -1038,6 +1069,18 @@ class Walker:
 
         return True
 
+    def get_poll_interval(self) -> float:
+        """Get poll interval, respecting playback speed if applicable"""
+        if isinstance(self.gps_source, GPSPlayback):
+            return self.gps_source.get_poll_interval()
+        return CONFIG["gps_poll_interval"]
+
+    def is_playback_finished(self) -> bool:
+        """Check if playback is complete"""
+        if isinstance(self.gps_source, GPSPlayback):
+            return self.gps_source.is_finished()
+        return False
+
     def run(self, target_distance: float):
         """Run the walk"""
 
@@ -1045,6 +1088,8 @@ class Walker:
         print(f"Target distance: {target_distance}m")
         if self.verbose:
             print("Verbose mode: ON (audio every 30s, log every 10s)")
+        if isinstance(self.gps_source, GPSPlayback):
+            print(f"Playback mode: {self.gps_source.speed}x speed")
         print("Press Ctrl+C to stop\n")
 
         if not self.initialize(target_distance):
@@ -1052,7 +1097,12 @@ class Walker:
 
         try:
             while self.update():
-                time.sleep(CONFIG["gps_poll_interval"])
+                # Check if playback finished
+                if self.is_playback_finished():
+                    print("\nPlayback finished")
+                    self.logger.log("Playback finished")
+                    break
+                time.sleep(self.get_poll_interval())
         except KeyboardInterrupt:
             print("\nWalk interrupted")
             self.audio.speak("Walk ended")

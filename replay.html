@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Walker Replay</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            background: #1a1a2e;
+            color: #eee;
+        }
+        #header {
+            padding: 10px 20px;
+            background: #16213e;
+            border-bottom: 1px solid #0f3460;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        #header h1 {
+            font-size: 1.2em;
+            color: #e94560;
+        }
+        .file-input {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .file-input label {
+            font-size: 0.85em;
+            color: #aaa;
+        }
+        .file-input input {
+            font-size: 0.85em;
+        }
+        #main {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+        #map {
+            flex: 1;
+            min-height: 300px;
+        }
+        #sidebar {
+            width: 350px;
+            background: #16213e;
+            border-left: 1px solid #0f3460;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        #controls {
+            padding: 15px;
+            border-bottom: 1px solid #0f3460;
+        }
+        #timeline-container {
+            margin-bottom: 15px;
+        }
+        #timeline {
+            width: 100%;
+            height: 8px;
+            -webkit-appearance: none;
+            background: #0f3460;
+            border-radius: 4px;
+            outline: none;
+            cursor: pointer;
+        }
+        #timeline::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #e94560;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        #time-display {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8em;
+            color: #888;
+            margin-top: 5px;
+        }
+        #playback-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        button {
+            background: #e94560;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9em;
+        }
+        button:hover {
+            background: #ff6b6b;
+        }
+        button:disabled {
+            background: #444;
+            cursor: not-allowed;
+        }
+        #speed-control {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        #speed-control label {
+            font-size: 0.85em;
+            color: #aaa;
+        }
+        #speed {
+            width: 80px;
+            padding: 4px 8px;
+            background: #0f3460;
+            border: 1px solid #1a1a2e;
+            color: #eee;
+            border-radius: 4px;
+        }
+        #state-panel {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+        }
+        .state-section {
+            margin-bottom: 20px;
+        }
+        .state-section h3 {
+            font-size: 0.9em;
+            color: #e94560;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .state-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+        .state-item {
+            background: #0f3460;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .state-item.full-width {
+            grid-column: 1 / -1;
+        }
+        .state-label {
+            font-size: 0.75em;
+            color: #888;
+            margin-bottom: 4px;
+        }
+        .state-value {
+            font-size: 1.1em;
+            font-weight: 500;
+        }
+        .state-value.highlight {
+            color: #4ecca3;
+        }
+        #events-log {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+            border-top: 1px solid #0f3460;
+            max-height: 200px;
+        }
+        #events-log h3 {
+            font-size: 0.9em;
+            color: #e94560;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .event-item {
+            font-size: 0.8em;
+            padding: 6px 8px;
+            margin-bottom: 4px;
+            background: #0f3460;
+            border-radius: 4px;
+            border-left: 3px solid #4ecca3;
+        }
+        .event-item.direction {
+            border-left-color: #e94560;
+        }
+        .event-item.walked {
+            border-left-color: #4ecca3;
+        }
+        .event-item.deviation {
+            border-left-color: #ffd93d;
+        }
+        .event-time {
+            color: #888;
+            font-size: 0.9em;
+        }
+        #legend {
+            padding: 15px;
+            border-top: 1px solid #0f3460;
+            font-size: 0.8em;
+        }
+        #legend h3 {
+            font-size: 0.9em;
+            color: #e94560;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+        .legend-color {
+            width: 20px;
+            height: 4px;
+            border-radius: 2px;
+        }
+        .legend-marker {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #16213e;
+            padding: 20px 40px;
+            border-radius: 8px;
+            z-index: 1000;
+            display: none;
+        }
+        .no-data {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #666;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div id="header">
+        <h1>Walker Replay</h1>
+        <div class="file-input">
+            <label>Replay data (preferred):</label>
+            <input type="file" id="replay-file" accept=".json">
+        </div>
+        <span style="color: #666; margin: 0 10px;">or</span>
+        <div class="file-input">
+            <label>Trace JSON:</label>
+            <input type="file" id="trace-file" accept=".json">
+        </div>
+        <div class="file-input">
+            <label>Log file:</label>
+            <input type="file" id="log-file" accept=".log,.txt">
+        </div>
+    </div>
+
+    <div id="main">
+        <div id="map"></div>
+        <div id="sidebar">
+            <div id="controls">
+                <div id="timeline-container">
+                    <input type="range" id="timeline" min="0" max="100" value="0" step="0.1">
+                    <div id="time-display">
+                        <span id="current-time">0:00</span>
+                        <span id="total-time">0:00</span>
+                    </div>
+                </div>
+                <div id="playback-controls">
+                    <button id="play-btn" disabled>▶ Play</button>
+                    <button id="step-btn" disabled>Step →</button>
+                    <div id="speed-control">
+                        <label>Speed:</label>
+                        <select id="speed">
+                            <option value="0.5">0.5x</option>
+                            <option value="1" selected>1x</option>
+                            <option value="2">2x</option>
+                            <option value="5">5x</option>
+                            <option value="10">10x</option>
+                            <option value="20">20x</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div id="state-panel">
+                <div class="state-section">
+                    <h3>Position</h3>
+                    <div class="state-grid">
+                        <div class="state-item">
+                            <div class="state-label">Latitude</div>
+                            <div class="state-value" id="state-lat">-</div>
+                        </div>
+                        <div class="state-item">
+                            <div class="state-label">Longitude</div>
+                            <div class="state-value" id="state-lon">-</div>
+                        </div>
+                        <div class="state-item">
+                            <div class="state-label">Accuracy</div>
+                            <div class="state-value" id="state-accuracy">-</div>
+                        </div>
+                        <div class="state-item">
+                            <div class="state-label">GPS Status</div>
+                            <div class="state-value" id="state-gps">-</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="state-section">
+                    <h3>Progress</h3>
+                    <div class="state-grid">
+                        <div class="state-item">
+                            <div class="state-label">Distance Walked</div>
+                            <div class="state-value highlight" id="state-distance">0m</div>
+                        </div>
+                        <div class="state-item">
+                            <div class="state-label">Target</div>
+                            <div class="state-value" id="state-target">-</div>
+                        </div>
+                        <div class="state-item">
+                            <div class="state-label">Segments</div>
+                            <div class="state-value" id="state-segments">0</div>
+                        </div>
+                        <div class="state-item">
+                            <div class="state-label">Progress</div>
+                            <div class="state-value" id="state-progress">0%</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="state-section">
+                    <h3>Navigation</h3>
+                    <div class="state-grid">
+                        <div class="state-item full-width">
+                            <div class="state-label">Current Node</div>
+                            <div class="state-value" id="state-current-node">-</div>
+                        </div>
+                        <div class="state-item full-width">
+                            <div class="state-label">Next Node</div>
+                            <div class="state-value" id="state-next-node">-</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="events-log">
+                <h3>Events</h3>
+                <div id="events-list">
+                    <div class="no-data">Load files to see events</div>
+                </div>
+            </div>
+
+            <div id="legend">
+                <h3>Legend</h3>
+                <div class="legend-item">
+                    <div class="legend-marker" style="background: #e94560;"></div>
+                    <span>Current Position</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #4ecca3;"></div>
+                    <span>GPS Trace</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #e94560; height: 6px;"></div>
+                    <span>Walked Segments</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-marker" style="background: #4ecca3;"></div>
+                    <span>Start Point</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-marker" style="background: #ffd93d; width: 10px; height: 10px;"></div>
+                    <span>Current Node</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-marker" style="background: #0984e3; width: 10px; height: 10px;"></div>
+                    <span>Next Node</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #0984e3; height: 3px; border-style: dashed;"></div>
+                    <span>Expected Route</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="loading">Loading...</div>
+
+    <script>
+        // =====================================================================
+        // State
+        // =====================================================================
+
+        let traceData = null;
+        let logData = null;
+        let map = null;
+        let isPlaying = false;
+        let playbackTime = 0;
+        let animationFrame = null;
+        let lastFrameTime = 0;
+
+        // Map layers
+        let traceLayer = null;
+        let walkedLayer = null;
+        let expectedRouteLayer = null;
+        let positionMarker = null;
+        let startMarker = null;
+        let currentNodeMarker = null;
+        let nextNodeMarker = null;
+
+        // Parsed data
+        let tracePoints = [];
+        let logEntries = [];
+        let stateEntries = [];
+        let eventEntries = [];
+        let nodeLocations = {};  // node_id -> {lat, lon}
+        let totalDuration = 0;
+
+        // =====================================================================
+        // Initialization
+        // =====================================================================
+
+        function initMap() {
+            map = L.map('map').setView([0, 0], 2);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+
+            // Initialize layers
+            traceLayer = L.polyline([], {
+                color: '#4ecca3',
+                weight: 3,
+                opacity: 0.6
+            }).addTo(map);
+
+            walkedLayer = L.polyline([], {
+                color: '#e94560',
+                weight: 5,
+                opacity: 0.9
+            }).addTo(map);
+
+            expectedRouteLayer = L.polyline([], {
+                color: '#0984e3',
+                weight: 3,
+                opacity: 0.7,
+                dashArray: '10, 10'
+            }).addTo(map);
+
+            // Position marker with pulsing effect
+            const pulseIcon = L.divIcon({
+                className: 'pulse-marker',
+                html: `<div style="
+                    width: 20px;
+                    height: 20px;
+                    background: #e94560;
+                    border: 3px solid white;
+                    border-radius: 50%;
+                    box-shadow: 0 0 10px rgba(233, 69, 96, 0.5);
+                "></div>`,
+                iconSize: [20, 20],
+                iconAnchor: [10, 10]
+            });
+            positionMarker = L.marker([0, 0], { icon: pulseIcon }).addTo(map);
+            positionMarker.setOpacity(0);
+
+            // Start marker
+            const startIcon = L.divIcon({
+                className: 'start-marker',
+                html: `<div style="
+                    width: 14px;
+                    height: 14px;
+                    background: #4ecca3;
+                    border: 2px solid white;
+                    border-radius: 50%;
+                "></div>`,
+                iconSize: [14, 14],
+                iconAnchor: [7, 7]
+            });
+            startMarker = L.marker([0, 0], { icon: startIcon }).addTo(map);
+            startMarker.setOpacity(0);
+
+            // Current node marker
+            const currentNodeIcon = L.divIcon({
+                className: 'node-marker',
+                html: `<div style="
+                    width: 12px;
+                    height: 12px;
+                    background: #ffd93d;
+                    border: 2px solid white;
+                    border-radius: 50%;
+                "></div>`,
+                iconSize: [12, 12],
+                iconAnchor: [6, 6]
+            });
+            currentNodeMarker = L.marker([0, 0], { icon: currentNodeIcon }).addTo(map);
+            currentNodeMarker.setOpacity(0);
+
+            // Next node marker
+            const nextNodeIcon = L.divIcon({
+                className: 'node-marker',
+                html: `<div style="
+                    width: 12px;
+                    height: 12px;
+                    background: #0984e3;
+                    border: 2px solid white;
+                    border-radius: 50%;
+                "></div>`,
+                iconSize: [12, 12],
+                iconAnchor: [6, 6]
+            });
+            nextNodeMarker = L.marker([0, 0], { icon: nextNodeIcon }).addTo(map);
+            nextNodeMarker.setOpacity(0);
+        }
+
+        // =====================================================================
+        // File Loading
+        // =====================================================================
+
+        // Combined replay file (preferred)
+        document.getElementById('replay-file').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            try {
+                const text = await file.text();
+                const replayData = JSON.parse(text);
+
+                // Extract components from replay data
+                if (replayData.trace) {
+                    traceData = { trace: replayData.trace };
+                    processTraceData();
+                }
+
+                if (replayData.state_entries) {
+                    stateEntries = replayData.state_entries;
+                }
+
+                if (replayData.event_entries) {
+                    eventEntries = replayData.event_entries;
+                    updateEventsDisplay();
+                }
+
+                if (replayData.node_locations) {
+                    nodeLocations = replayData.node_locations;
+                    console.log(`Loaded ${Object.keys(nodeLocations).length} node locations`);
+                }
+
+                if (replayData.duration) {
+                    totalDuration = Math.max(totalDuration, replayData.duration);
+                    document.getElementById('total-time').textContent = formatTime(totalDuration);
+                    document.getElementById('timeline').max = totalDuration;
+                }
+
+                updateVisualization();
+                checkReady();
+                console.log('Loaded replay data:', replayData.stats);
+            } catch (err) {
+                alert('Error loading replay file: ' + err.message);
+            }
+        });
+
+        document.getElementById('trace-file').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            try {
+                const text = await file.text();
+                traceData = JSON.parse(text);
+                processTraceData();
+                updateVisualization();
+                checkReady();
+            } catch (err) {
+                alert('Error loading trace file: ' + err.message);
+            }
+        });
+
+        document.getElementById('log-file').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            try {
+                const text = await file.text();
+                logData = text;
+                processLogData();
+                updateVisualization();
+                checkReady();
+            } catch (err) {
+                alert('Error loading log file: ' + err.message);
+            }
+        });
+
+        function processTraceData() {
+            if (!traceData || !traceData.trace) return;
+
+            tracePoints = traceData.trace
+                .filter(e => e.location)
+                .map(e => ({
+                    lat: e.location.lat,
+                    lon: e.location.lon,
+                    accuracy: e.location.accuracy,
+                    elapsed: e.elapsed,
+                    status: e.status
+                }));
+
+            if (tracePoints.length > 0) {
+                totalDuration = Math.max(totalDuration, tracePoints[tracePoints.length - 1].elapsed);
+            }
+
+            // Update trace layer
+            const coords = tracePoints.map(p => [p.lat, p.lon]);
+            traceLayer.setLatLngs(coords);
+
+            // Fit map to trace
+            if (coords.length > 0) {
+                map.fitBounds(traceLayer.getBounds(), { padding: [50, 50] });
+
+                // Set start marker
+                startMarker.setLatLng(coords[0]);
+                startMarker.setOpacity(1);
+            }
+
+            // Update timeline
+            document.getElementById('total-time').textContent = formatTime(totalDuration);
+            document.getElementById('timeline').max = totalDuration;
+        }
+
+        function processLogData() {
+            if (!logData) return;
+
+            logEntries = [];
+            stateEntries = [];
+            eventEntries = [];
+
+            const lines = logData.split('\n');
+            let startTime = null;
+
+            for (const line of lines) {
+                // Parse log line: [timestamp] message | {json}
+                const match = line.match(/^\[([^\]]+)\]\s*(.+?)(?:\s*\|\s*(.+))?$/);
+                if (!match) continue;
+
+                const timestamp = new Date(match[1]);
+                const message = match[2].trim();
+                let data = null;
+
+                if (match[3]) {
+                    try {
+                        data = JSON.parse(match[3]);
+                    } catch (e) {}
+                }
+
+                if (!startTime) startTime = timestamp;
+                const elapsed = (timestamp - startTime) / 1000;
+
+                const entry = { timestamp, elapsed, message, data };
+                logEntries.push(entry);
+
+                // Categorize entries
+                if (message === 'STATE' && data) {
+                    stateEntries.push({ elapsed, ...data });
+                    totalDuration = Math.max(totalDuration, elapsed);
+                } else if (message.includes('Direction:') ||
+                           message.includes('Walked') ||
+                           message.includes('Moved') ||
+                           message.includes('Recalculated') ||
+                           message.includes('Deviation')) {
+                    eventEntries.push({ elapsed, message, data });
+                }
+            }
+
+            // Update timeline
+            document.getElementById('total-time').textContent = formatTime(totalDuration);
+            document.getElementById('timeline').max = totalDuration;
+
+            // Update events display
+            updateEventsDisplay();
+        }
+
+        function checkReady() {
+            const hasData = tracePoints.length > 0 || stateEntries.length > 0;
+            document.getElementById('play-btn').disabled = !hasData;
+            document.getElementById('step-btn').disabled = !hasData;
+        }
+
+        // =====================================================================
+        // Playback
+        // =====================================================================
+
+        document.getElementById('play-btn').addEventListener('click', togglePlay);
+        document.getElementById('step-btn').addEventListener('click', stepForward);
+        document.getElementById('timeline').addEventListener('input', onTimelineChange);
+
+        function togglePlay() {
+            isPlaying = !isPlaying;
+            document.getElementById('play-btn').textContent = isPlaying ? '⏸ Pause' : '▶ Play';
+
+            if (isPlaying) {
+                lastFrameTime = performance.now();
+                animationFrame = requestAnimationFrame(animate);
+            } else {
+                cancelAnimationFrame(animationFrame);
+            }
+        }
+
+        function stepForward() {
+            // Find next event after current time
+            const nextEvent = eventEntries.find(e => e.elapsed > playbackTime);
+            if (nextEvent) {
+                playbackTime = nextEvent.elapsed;
+            } else {
+                // Step by 1 second if no events
+                playbackTime = Math.min(playbackTime + 1, totalDuration);
+            }
+            updateVisualization();
+            updateTimeline();
+        }
+
+        function onTimelineChange(e) {
+            playbackTime = parseFloat(e.target.value);
+            updateVisualization();
+        }
+
+        function animate(currentTime) {
+            if (!isPlaying) return;
+
+            const deltaTime = (currentTime - lastFrameTime) / 1000;
+            lastFrameTime = currentTime;
+
+            const speed = parseFloat(document.getElementById('speed').value);
+            playbackTime += deltaTime * speed;
+
+            if (playbackTime >= totalDuration) {
+                playbackTime = totalDuration;
+                isPlaying = false;
+                document.getElementById('play-btn').textContent = '▶ Play';
+            }
+
+            updateVisualization();
+            updateTimeline();
+
+            if (isPlaying) {
+                animationFrame = requestAnimationFrame(animate);
+            }
+        }
+
+        function updateTimeline() {
+            document.getElementById('timeline').value = playbackTime;
+            document.getElementById('current-time').textContent = formatTime(playbackTime);
+        }
+
+        // =====================================================================
+        // Visualization
+        // =====================================================================
+
+        function updateVisualization() {
+            updatePositionMarker();
+            updateWalkedPath();
+            updateStateDisplay();
+            updateNodeMarkers();
+            highlightCurrentEvent();
+        }
+
+        function updatePositionMarker() {
+            if (tracePoints.length === 0) return;
+
+            // Find the trace point at current time
+            let point = null;
+            for (let i = 0; i < tracePoints.length; i++) {
+                if (tracePoints[i].elapsed <= playbackTime) {
+                    point = tracePoints[i];
+                } else {
+                    break;
+                }
+            }
+
+            if (point) {
+                positionMarker.setLatLng([point.lat, point.lon]);
+                positionMarker.setOpacity(1);
+
+                // Update position state
+                document.getElementById('state-lat').textContent = point.lat.toFixed(6);
+                document.getElementById('state-lon').textContent = point.lon.toFixed(6);
+                document.getElementById('state-accuracy').textContent =
+                    point.accuracy ? `${point.accuracy.toFixed(1)}m` : '-';
+                document.getElementById('state-gps').textContent = point.status || '-';
+            }
+        }
+
+        function updateWalkedPath() {
+            if (tracePoints.length === 0) return;
+
+            // Show trace up to current time
+            const walkedCoords = tracePoints
+                .filter(p => p.elapsed <= playbackTime)
+                .map(p => [p.lat, p.lon]);
+
+            walkedLayer.setLatLngs(walkedCoords);
+        }
+
+        function updateStateDisplay() {
+            // Find the most recent state entry
+            let state = null;
+            for (let i = 0; i < stateEntries.length; i++) {
+                if (stateEntries[i].elapsed <= playbackTime) {
+                    state = stateEntries[i];
+                } else {
+                    break;
+                }
+            }
+
+            if (state) {
+                const distance = state.walked_distance || 0;
+                const target = state.target_distance || 0;
+                const segments = state.segments_walked || 0;
+                const progress = target > 0 ? (distance / target * 100) : 0;
+
+                document.getElementById('state-distance').textContent = `${Math.round(distance)}m`;
+                document.getElementById('state-target').textContent = `${Math.round(target)}m`;
+                document.getElementById('state-segments').textContent = segments;
+                document.getElementById('state-progress').textContent = `${progress.toFixed(1)}%`;
+                document.getElementById('state-current-node').textContent = state.current_node || '-';
+                document.getElementById('state-next-node').textContent = state.next_node || '-';
+
+                if (state.gps_status) {
+                    document.getElementById('state-gps').textContent = state.gps_status;
+                }
+            }
+        }
+
+        function updateNodeMarkers() {
+            // Find current state
+            let state = null;
+            for (let i = 0; i < stateEntries.length; i++) {
+                if (stateEntries[i].elapsed <= playbackTime) {
+                    state = stateEntries[i];
+                } else {
+                    break;
+                }
+            }
+
+            if (!state) {
+                currentNodeMarker.setOpacity(0);
+                nextNodeMarker.setOpacity(0);
+                expectedRouteLayer.setLatLngs([]);
+                return;
+            }
+
+            // Update current node marker
+            const currentNodeId = String(state.current_node);
+            let currentLoc = null;
+            if (currentNodeId && nodeLocations[currentNodeId]) {
+                currentLoc = nodeLocations[currentNodeId];
+                currentNodeMarker.setLatLng([currentLoc.lat, currentLoc.lon]);
+                currentNodeMarker.setOpacity(1);
+            } else {
+                currentNodeMarker.setOpacity(0);
+            }
+
+            // Update next node marker
+            const nextNodeId = String(state.next_node);
+            let nextLoc = null;
+            if (nextNodeId && nodeLocations[nextNodeId]) {
+                nextLoc = nodeLocations[nextNodeId];
+                nextNodeMarker.setLatLng([nextLoc.lat, nextLoc.lon]);
+                nextNodeMarker.setOpacity(1);
+            } else {
+                nextNodeMarker.setOpacity(0);
+            }
+
+            // Draw expected route line
+            if (currentLoc && nextLoc) {
+                expectedRouteLayer.setLatLngs([
+                    [currentLoc.lat, currentLoc.lon],
+                    [nextLoc.lat, nextLoc.lon]
+                ]);
+            } else {
+                expectedRouteLayer.setLatLngs([]);
+            }
+        }
+
+        function updateEventsDisplay() {
+            const container = document.getElementById('events-list');
+
+            if (eventEntries.length === 0) {
+                container.innerHTML = '<div class="no-data">No events found in log</div>';
+                return;
+            }
+
+            container.innerHTML = eventEntries.map(e => {
+                let className = 'event-item';
+                if (e.message.includes('Direction')) className += ' direction';
+                else if (e.message.includes('Walked')) className += ' walked';
+                else if (e.message.includes('Deviation') || e.message.includes('Moved')) className += ' deviation';
+
+                return `
+                    <div class="${className}" data-elapsed="${e.elapsed}">
+                        <span class="event-time">${formatTime(e.elapsed)}</span>
+                        ${e.message}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function highlightCurrentEvent() {
+            // Remove previous highlights
+            document.querySelectorAll('.event-item').forEach(el => {
+                el.style.background = '';
+            });
+
+            // Find and highlight current event
+            const events = document.querySelectorAll('.event-item');
+            let lastEvent = null;
+
+            events.forEach(el => {
+                const elapsed = parseFloat(el.dataset.elapsed);
+                if (elapsed <= playbackTime) {
+                    lastEvent = el;
+                }
+            });
+
+            if (lastEvent) {
+                lastEvent.style.background = '#1a1a2e';
+                lastEvent.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        }
+
+        // =====================================================================
+        // Utilities
+        // =====================================================================
+
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        // =====================================================================
+        // Initialize
+        // =====================================================================
+
+        initMap();
+    </script>
+</body>
+</html>
