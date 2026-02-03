@@ -2,15 +2,27 @@
 """
 Walker - Turn-by-turn pedestrian exploration guide
 Prototype version
+
+Usage:
+    python walker.py [distance_km] [options]
+
+Options:
+    -v, --verbose     Audio updates every 30s, log to file every 10s
+    --record FILE     Record GPS trace to JSON file for debugging
+    --playback FILE   Playback GPS trace from JSON file
+    --speed FACTOR    Playback speed multiplier (default: 1.0)
 """
 
+import argparse
 import json
 import math
 import sqlite3
 import subprocess
+import sys
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from datetime import datetime
+from pathlib import Path
 from typing import Optional
 
 import networkx as nx
@@ -26,6 +38,8 @@ CONFIG = {
     "direction_warning_distance": 20,  # meters
     "default_walk_distance": 2000,  # meters (2km default)
     "osm_fetch_radius": 1500,  # meters - area to fetch from OSM
+    "verbose_audio_interval": 30,  # seconds between audio status updates
+    "verbose_log_interval": 10,  # seconds between log entries
     # Road type weights (lower = preferred)
     "road_weights": {
         "footway": 1,
@@ -56,6 +70,13 @@ class Location:
     accuracy: Optional[float] = None
     timestamp: Optional[float] = None
 
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "Location":
+        return cls(**d)
+
 
 @dataclass
 class Segment:
@@ -74,6 +95,44 @@ class Segment:
 
 
 # =============================================================================
+# Logging
+# =============================================================================
+
+
+class Logger:
+    """Logs state to file"""
+
+    def __init__(self, log_path: Optional[str] = None):
+        self.log_path = log_path
+        self.file = None
+        if log_path:
+            self.file = open(log_path, "a")
+            self._write_header()
+
+    def _write_header(self):
+        if self.file:
+            self.file.write(f"\n{'='*60}\n")
+            self.file.write(f"Walker Log - {datetime.now().isoformat()}\n")
+            self.file.write(f"{'='*60}\n\n")
+            self.file.flush()
+
+    def log(self, message: str, data: Optional[dict] = None):
+        """Log a message with optional structured data"""
+        timestamp = datetime.now().isoformat()
+        line = f"[{timestamp}] {message}"
+        if data:
+            line += f" | {json.dumps(data)}"
+        print(line)
+        if self.file:
+            self.file.write(line + "\n")
+            self.file.flush()
+
+    def close(self):
+        if self.file:
+            self.file.close()
+
+
+# =============================================================================
 # GPS Module
 # =============================================================================
 
@@ -81,8 +140,11 @@ class Segment:
 class GPS:
     """GPS access via Termux API"""
 
-    @staticmethod
-    def get_location(timeout: int = 30) -> Optional[Location]:
+    def __init__(self):
+        self.last_location: Optional[Location] = None
+        self.consecutive_failures = 0
+
+    def get_location(self, timeout: int = 30) -> Optional[Location]:
         """Get current location using termux-location"""
         try:
             result = subprocess.run(
@@ -91,26 +153,129 @@ class GPS:
                 text=True,
                 timeout=timeout
             )
+
             if result.returncode != 0:
-                print(f"GPS error: {result.stderr}")
+                self.consecutive_failures += 1
+                error_msg = result.stderr.strip() if result.stderr else "unknown error"
+                return None
+
+            if not result.stdout or not result.stdout.strip():
+                self.consecutive_failures += 1
                 return None
 
             data = json.loads(result.stdout)
-            return Location(
+            location = Location(
                 lat=data["latitude"],
                 lon=data["longitude"],
                 accuracy=data.get("accuracy"),
-                timestamp=data.get("elapsedMs", time.time() * 1000) / 1000
+                timestamp=time.time()
             )
+            self.last_location = location
+            self.consecutive_failures = 0
+            return location
+
         except subprocess.TimeoutExpired:
-            print("GPS timeout")
+            self.consecutive_failures += 1
             return None
         except (json.JSONDecodeError, KeyError) as e:
-            print(f"GPS parse error: {e}")
+            self.consecutive_failures += 1
             return None
         except FileNotFoundError:
-            print("termux-location not found. Install with: pkg install termux-api")
+            self.consecutive_failures += 1
             return None
+
+    def get_status(self) -> str:
+        """Get GPS status string"""
+        if self.consecutive_failures == 0:
+            acc = f", accuracy {self.last_location.accuracy:.0f}m" if self.last_location and self.last_location.accuracy else ""
+            return f"GPS OK{acc}"
+        else:
+            return f"GPS: {self.consecutive_failures} consecutive failures"
+
+
+class GPSRecorder:
+    """Records GPS trace to file"""
+
+    def __init__(self, gps: GPS, record_path: str):
+        self.gps = gps
+        self.record_path = record_path
+        self.trace: list[dict] = []
+        self.start_time = time.time()
+
+    def get_location(self, timeout: int = 30) -> Optional[Location]:
+        """Get location and record it"""
+        location = self.gps.get_location(timeout)
+
+        # Record even failed attempts
+        entry = {
+            "elapsed": time.time() - self.start_time,
+            "timestamp": time.time(),
+            "location": location.to_dict() if location else None,
+            "status": self.gps.get_status()
+        }
+        self.trace.append(entry)
+
+        return location
+
+    def get_status(self) -> str:
+        return self.gps.get_status()
+
+    def save(self):
+        """Save trace to file"""
+        with open(self.record_path, "w") as f:
+            json.dump({
+                "recorded_at": datetime.now().isoformat(),
+                "trace": self.trace
+            }, f, indent=2)
+        print(f"GPS trace saved to {self.record_path} ({len(self.trace)} entries)")
+
+
+class GPSPlayback:
+    """Plays back GPS trace from file"""
+
+    def __init__(self, playback_path: str, speed: float = 1.0):
+        self.playback_path = playback_path
+        self.speed = speed
+        self.trace: list[dict] = []
+        self.index = 0
+        self.start_time = time.time()
+        self.last_location: Optional[Location] = None
+        self.consecutive_failures = 0
+
+        # Load trace
+        with open(playback_path) as f:
+            data = json.load(f)
+            self.trace = data["trace"]
+        print(f"Loaded GPS trace from {playback_path} ({len(self.trace)} entries)")
+
+    def get_location(self, timeout: int = 30) -> Optional[Location]:
+        """Get next location from trace, respecting timing"""
+        if self.index >= len(self.trace):
+            return None
+
+        # Wait for correct time
+        elapsed = (time.time() - self.start_time) * self.speed
+        entry = self.trace[self.index]
+
+        while self.index < len(self.trace) and self.trace[self.index]["elapsed"] <= elapsed:
+            entry = self.trace[self.index]
+            self.index += 1
+
+        if entry["location"]:
+            location = Location.from_dict(entry["location"])
+            self.last_location = location
+            self.consecutive_failures = 0
+            return location
+        else:
+            self.consecutive_failures += 1
+            return None
+
+    def get_status(self) -> str:
+        progress = f"{self.index}/{len(self.trace)}"
+        if self.consecutive_failures == 0:
+            return f"Playback OK ({progress})"
+        else:
+            return f"Playback: {self.consecutive_failures} failures ({progress})"
 
 
 # =============================================================================
@@ -591,12 +756,14 @@ class RoutePlanner:
 class Walker:
     """Main application"""
 
-    def __init__(self):
+    def __init__(self, verbose: bool = False, log_path: Optional[str] = None):
         self.gps = GPS()
         self.audio = Audio()
         self.history = HistoryDB()
         self.graph: Optional[StreetGraph] = None
         self.planner: Optional[RoutePlanner] = None
+        self.verbose = verbose
+        self.logger = Logger(log_path)
 
         self.current_location: Optional[Location] = None
         self.current_node: Optional[int] = None
@@ -607,19 +774,92 @@ class Walker:
         self.walk_id: Optional[int] = None
         self.segments_walked: int = 0
 
-    def initialize(self, target_distance: float):
+        # Verbose mode timing
+        self.last_audio_update = 0
+        self.last_log_update = 0
+        self.walk_start_time = 0
+
+        # GPS source (can be swapped for recording/playback)
+        self.gps_source = self.gps
+
+    def set_gps_source(self, source):
+        """Set GPS source (GPS, GPSRecorder, or GPSPlayback)"""
+        self.gps_source = source
+
+    def get_state(self) -> dict:
+        """Get current state as dict for logging"""
+        state = {
+            "walked_distance": self.planner.walked_distance if self.planner else 0,
+            "target_distance": self.planner.target_distance if self.planner else 0,
+            "segments_walked": self.segments_walked,
+            "current_node": self.current_node,
+            "next_node": self.next_node,
+            "gps_status": self.gps_source.get_status() if hasattr(self.gps_source, 'get_status') else "unknown",
+        }
+        if self.current_location:
+            state["location"] = {
+                "lat": self.current_location.lat,
+                "lon": self.current_location.lon,
+                "accuracy": self.current_location.accuracy
+            }
+        return state
+
+    def verbose_update(self):
+        """Handle verbose mode updates"""
+        now = time.time()
+
+        # Log to file every 10 seconds
+        if now - self.last_log_update >= CONFIG["verbose_log_interval"]:
+            self.logger.log("STATE", self.get_state())
+            self.last_log_update = now
+
+        # Audio update every 30 seconds
+        if now - self.last_audio_update >= CONFIG["verbose_audio_interval"]:
+            elapsed = int(now - self.walk_start_time)
+            minutes = elapsed // 60
+            distance = int(self.planner.walked_distance) if self.planner else 0
+            remaining = int(self.planner.target_distance - distance) if self.planner else 0
+
+            status_parts = []
+            if minutes > 0:
+                status_parts.append(f"{minutes} minutes")
+            status_parts.append(f"{distance} meters walked")
+            status_parts.append(f"{remaining} to go")
+
+            gps_status = self.gps_source.get_status() if hasattr(self.gps_source, 'get_status') else ""
+            if "fail" in gps_status.lower():
+                status_parts.append("GPS problems")
+
+            status = ", ".join(status_parts)
+            self.audio.speak(status)
+            self.logger.log(f"AUDIO: {status}")
+            self.last_audio_update = now
+
+    def initialize(self, target_distance: float) -> bool:
         """Initialize walk with GPS fix and map data"""
 
+        self.logger.log("Initializing walk", {"target_distance": target_distance})
         print("Getting GPS fix...")
         self.audio.speak("Getting GPS fix")
 
-        location = self.gps.get_location()
+        # Try multiple times to get GPS fix
+        location = None
+        for attempt in range(3):
+            location = self.gps_source.get_location(timeout=45)
+            if location:
+                break
+            self.logger.log(f"GPS attempt {attempt + 1} failed")
+            print(f"GPS attempt {attempt + 1} failed, retrying...")
+
         if not location:
+            self.logger.log("Could not get GPS location after 3 attempts")
             print("Could not get GPS location")
+            self.audio.speak("Could not get GPS location")
             return False
 
         self.current_location = location
-        print(f"Location: {location.lat:.5f}, {location.lon:.5f}")
+        self.logger.log("Got GPS fix", {"lat": location.lat, "lon": location.lon, "accuracy": location.accuracy})
+        print(f"Location: {location.lat:.5f}, {location.lon:.5f} (accuracy: {location.accuracy}m)")
 
         # Fetch OSM data
         osm_data = OSMFetcher.fetch_streets(
@@ -627,20 +867,25 @@ class Walker:
         )
 
         if not osm_data.get("elements"):
+            self.logger.log("Could not fetch map data")
             print("Could not fetch map data")
+            self.audio.speak("Could not fetch map data")
             return False
 
         # Build graph
         self.graph = StreetGraph()
         self.graph.build_from_osm(osm_data)
+        self.logger.log("Built graph", {"nodes": len(self.graph.nodes), "segments": len(self.graph.segments)})
 
         # Find starting node
         self.current_node = self.graph.find_nearest_node(location.lat, location.lon)
         if not self.current_node:
+            self.logger.log("Could not find starting point on map")
             print("Could not find starting point on map")
             return False
 
         node_loc = self.graph.get_node_location(self.current_node)
+        self.logger.log("Starting node", {"node": self.current_node, "lat": node_loc[0], "lon": node_loc[1]})
         print(f"Starting at node {self.current_node} ({node_loc[0]:.5f}, {node_loc[1]:.5f})")
 
         # Initialize planner
@@ -660,16 +905,26 @@ class Walker:
             compass = bearing_to_compass(bearing)
 
             self.audio.speak(f"Walk started. Head {compass}")
+            self.logger.log(f"Walk started, head {compass}", {"next_node": self.next_node})
             print(f"Head {compass} toward node {self.next_node}")
+
+        self.walk_start_time = time.time()
+        self.last_audio_update = time.time()
+        self.last_log_update = time.time()
 
         return True
 
     def update(self) -> bool:
         """Main update loop - returns False when walk is complete"""
 
+        # Verbose mode updates
+        if self.verbose:
+            self.verbose_update()
+
         # Get current GPS
-        location = self.gps.get_location()
+        location = self.gps_source.get_location()
         if not location:
+            self.logger.log("GPS fix failed", {"status": self.gps_source.get_status() if hasattr(self.gps_source, 'get_status') else "unknown"})
             return True  # Keep going even with GPS errors
 
         self.current_location = location
@@ -705,6 +960,7 @@ class Walker:
                         self.current_node, self.next_node, after_next
                     )
                     self.audio.speak(instruction)
+                    self.logger.log(f"Direction: {instruction}", {"at_node": self.next_node, "next": after_next})
                     print(f"Direction: {instruction}")
                     self.direction_given = True
 
@@ -716,12 +972,19 @@ class Walker:
                     self.history.record_segment(segment.id)
                     self.planner.walked_distance += segment.length
                     self.segments_walked += 1
+                    self.logger.log(f"Walked segment", {
+                        "segment": segment.id,
+                        "length": segment.length,
+                        "total": self.planner.walked_distance,
+                        "name": segment.name
+                    })
                     print(f"Walked {segment.length:.0f}m, total: {self.planner.walked_distance:.0f}m")
 
                 # Check if walk is complete
                 if (self.next_node == self.planner.start_node and
                     self.planner.walked_distance >= self.planner.target_distance * 0.8):
                     self.audio.speak("Walk complete")
+                    self.logger.log("Walk complete")
                     print("Walk complete!")
                     return False
 
@@ -734,6 +997,7 @@ class Walker:
                 self.direction_given = False
 
                 if not self.next_node:
+                    self.logger.log("No path available")
                     print("No path available")
                     self.audio.speak("No path available")
                     return False
@@ -741,6 +1005,7 @@ class Walker:
         # Check if user deviated
         elif nearest != self.current_node:
             # User went somewhere unexpected - adapt
+            self.logger.log("Deviation detected", {"expected": self.current_node, "actual": nearest})
             print(f"Deviation detected: expected {self.current_node}, now at {nearest}")
 
             # Record the segment they actually walked if it exists
@@ -768,6 +1033,7 @@ class Walker:
                         self.current_node, self.next_node, after_next
                     )
                     self.audio.speak(f"Recalculating. {instruction}")
+                    self.logger.log(f"Recalculated: {instruction}")
                     print(f"Recalculated: {instruction}")
 
         return True
@@ -775,8 +1041,10 @@ class Walker:
     def run(self, target_distance: float):
         """Run the walk"""
 
-        print(f"\n=== Walker Prototype ===")
+        print(f"\n=== Walker ===")
         print(f"Target distance: {target_distance}m")
+        if self.verbose:
+            print("Verbose mode: ON (audio every 30s, log every 10s)")
         print("Press Ctrl+C to stop\n")
 
         if not self.initialize(target_distance):
@@ -788,6 +1056,7 @@ class Walker:
         except KeyboardInterrupt:
             print("\nWalk interrupted")
             self.audio.speak("Walk ended")
+            self.logger.log("Walk interrupted by user")
         finally:
             # Record walk stats
             if self.walk_id:
@@ -797,11 +1066,24 @@ class Walker:
                     self.segments_walked
                 )
 
+            # Save GPS recording if applicable
+            if isinstance(self.gps_source, GPSRecorder):
+                self.gps_source.save()
+
+            summary = {
+                "distance": self.planner.walked_distance if self.planner else 0,
+                "segments": self.segments_walked,
+                "duration": time.time() - self.walk_start_time if self.walk_start_time else 0
+            }
+            self.logger.log("Walk summary", summary)
+
             print(f"\nWalk summary:")
-            print(f"  Distance: {self.planner.walked_distance:.0f}m" if self.planner else "  Distance: unknown")
-            print(f"  Segments: {self.segments_walked}")
+            print(f"  Distance: {summary['distance']:.0f}m")
+            print(f"  Segments: {summary['segments']}")
+            print(f"  Duration: {summary['duration']/60:.1f} minutes")
 
             self.history.close()
+            self.logger.close()
 
 
 # =============================================================================
@@ -810,20 +1092,45 @@ class Walker:
 
 
 def main():
-    import sys
+    parser = argparse.ArgumentParser(
+        description="Walker - Turn-by-turn pedestrian exploration guide"
+    )
+    parser.add_argument("distance", type=float, nargs="?", default=2.0,
+                        help="Target distance in km (default: 2.0)")
+    parser.add_argument("-v", "--verbose", action="store_true",
+                        help="Audio updates every 30s, log to file every 10s")
+    parser.add_argument("--record", metavar="FILE",
+                        help="Record GPS trace to JSON file")
+    parser.add_argument("--playback", metavar="FILE",
+                        help="Playback GPS trace from JSON file")
+    parser.add_argument("--speed", type=float, default=1.0,
+                        help="Playback speed multiplier (default: 1.0)")
+    parser.add_argument("--log", metavar="FILE",
+                        help="Log file path (default: walker_TIMESTAMP.log in verbose mode)")
 
-    # Get target distance from command line or use default
-    if len(sys.argv) > 1:
-        try:
-            distance = float(sys.argv[1]) * 1000  # Convert km to meters
-        except ValueError:
-            print(f"Usage: {sys.argv[0]} [distance_km]")
-            print(f"Example: {sys.argv[0]} 2.5  (for 2.5km walk)")
+    args = parser.parse_args()
+
+    # Convert km to meters
+    distance = args.distance * 1000
+
+    # Determine log path
+    log_path = args.log
+    if args.verbose and not log_path:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        log_path = f"walker_{timestamp}.log"
+
+    # Create walker
+    walker = Walker(verbose=args.verbose, log_path=log_path)
+
+    # Set up GPS source
+    if args.playback:
+        if not Path(args.playback).exists():
+            print(f"Playback file not found: {args.playback}")
             sys.exit(1)
-    else:
-        distance = CONFIG["default_walk_distance"]
+        walker.set_gps_source(GPSPlayback(args.playback, args.speed))
+    elif args.record:
+        walker.set_gps_source(GPSRecorder(walker.gps, args.record))
 
-    walker = Walker()
     walker.run(distance)
 
 
