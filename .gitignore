@@ -1,5 +1,21 @@
-walker_sim_history.db
-walker_map.html
+# Database files
+*.db
+
+# Log files
+*.log
+
+# Generated map files
+*_map.html
+trace_map.html
+
+# Test/recorded data
+test*.json
+replay_data.json
+
+# Python
 __pycache__/
 venv/
+*.pyc
+
+# IDE/tools
 .claude/
