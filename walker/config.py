@@ -37,4 +37,5 @@ CONFIG = {
     "busy_road_proximity_threshold": 30,  # meters
     "busy_road_proximity_penalty": 8,     # added to score (makes footway=1 effectively score like primary=9)
     "distance_milestone_interval": 250,  # meters between distance announcements
+    "corridor_min_segment_length": 10,  # meters - skip short segments in corridor detection
 }

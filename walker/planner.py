@@ -56,6 +56,20 @@ class RoutePlanner:
                 if self._allowed_graph.has_edge(u, v):
                     self._allowed_graph.remove_edge(u, v)
 
+    def _mark_segment_used(self, segment: Segment, used_segments: set[str]):
+        """Mark a segment and its parallel corridor siblings as used."""
+        used_segments.add(segment.id)
+        for parallel_id in self.graph.parallel_segments.get(segment.id, ()):
+            used_segments.add(parallel_id)
+
+    def _return_path_weight(self, used_segments: set[str], u: int, v: int, data: dict) -> float:
+        """Weight function for return path that penalizes already-used segments."""
+        length = data.get("length", 1)
+        seg_id = Segment.make_id(u, v)
+        if seg_id in used_segments:
+            return length * 10
+        return length
+
     def start_walk(self, start_node: int, target_distance: float):
         """Initialize a new walk"""
         self.start_node = start_node
@@ -99,17 +113,18 @@ class RoutePlanner:
 
             # If we've walked enough and are close to start, head home
             if distance >= target_distance * 0.5 and remaining_budget < dist_to_start * 1.5:
-                # Find path back to start
+                # Find path back to start (penalizing already-used segments)
                 try:
                     path_home = nx.shortest_path(
-                        self._allowed_graph, current, start_node, weight="length"
+                        self._allowed_graph, current, start_node,
+                        weight=lambda u, v, d: self._return_path_weight(used_segments, u, v, d)
                     )
                     # Add remaining path (excluding current which is already in route)
                     for node in path_home[1:]:
                         segment = self.graph.get_segment(route[-1], node)
                         if segment:
                             distance += segment.length
-                            used_segments.add(segment.id)
+                            self._mark_segment_used(segment, used_segments)
                         route.append(node)
                     break
                 except nx.NetworkXNoPath:
@@ -142,16 +157,17 @@ class RoutePlanner:
                         valid_options.append(n)
 
             if not valid_options:
-                # No valid options, try to go home
+                # No valid options, try to go home (penalizing already-used segments)
                 try:
                     path_home = nx.shortest_path(
-                        self._allowed_graph, current, start_node, weight="length"
+                        self._allowed_graph, current, start_node,
+                        weight=lambda u, v, d: self._return_path_weight(used_segments, u, v, d)
                     )
                     for node in path_home[1:]:
                         segment = self.graph.get_segment(route[-1], node)
                         if segment:
                             distance += segment.length
-                            used_segments.add(segment.id)
+                            self._mark_segment_used(segment, used_segments)
                         route.append(node)
                 except nx.NetworkXNoPath:
                     pass
@@ -168,7 +184,7 @@ class RoutePlanner:
             segment = self.graph.get_segment(current, next_node)
             if segment:
                 distance += segment.length
-                used_segments.add(segment.id)
+                self._mark_segment_used(segment, used_segments)
                 # Track this segment in recent context for backtrack detection
                 recent_context.add_segment(
                     segment, current, next_node,

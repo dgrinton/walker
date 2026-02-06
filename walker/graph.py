@@ -6,7 +6,7 @@ import networkx as nx
 
 from .config import CONFIG
 from .models import Segment
-from .geo import haversine_distance
+from .geo import haversine_distance, bearing_between, are_bearings_parallel
 
 
 class StreetGraph:
@@ -16,6 +16,7 @@ class StreetGraph:
         self.graph = nx.Graph()
         self.nodes: dict[int, tuple[float, float]] = {}  # node_id -> (lat, lon)
         self.segments: dict[str, Segment] = {}  # segment_id -> Segment
+        self.parallel_segments: dict[str, set[str]] = {}  # segment_id -> set of parallel segment_ids
 
     def build_from_osm(self, osm_data: dict):
         """Build graph from OSM data"""
@@ -69,6 +70,7 @@ class StreetGraph:
                                     name=name)
 
         self._flag_busy_road_adjacent()
+        self._compute_parallel_segments()
         print(f"Built graph: {len(self.nodes)} nodes, {len(self.segments)} segments")
 
     def _flag_busy_road_adjacent(self):
@@ -108,6 +110,68 @@ class StreetGraph:
 
         if flagged:
             print(f"Flagged {flagged} footpath segments adjacent to busy roads")
+
+    def _compute_parallel_segments(self):
+        """Precompute mapping of parallel segments for corridor deduplication.
+
+        Two segments are parallel if they belong to different OSM ways, share no
+        nodes, have midpoints within the proximity threshold, and bearings within
+        the angle threshold (direction-agnostic).
+        """
+        proximity = CONFIG["parallel_distance_threshold"]
+        angle_threshold = CONFIG["parallel_angle_threshold"]
+        min_length = CONFIG["corridor_min_segment_length"]
+
+        # Pre-compute midpoints and bearings for eligible segments
+        seg_info: list[tuple[str, Segment, float, float, float]] = []  # (id, seg, mid_lat, mid_lon, bearing)
+        for seg in self.segments.values():
+            if seg.length < min_length:
+                continue
+            loc1 = self.nodes.get(seg.node1)
+            loc2 = self.nodes.get(seg.node2)
+            if not loc1 or not loc2:
+                continue
+            mid_lat = (loc1[0] + loc2[0]) / 2
+            mid_lon = (loc1[1] + loc2[1]) / 2
+            seg_bearing = bearing_between(loc1[0], loc1[1], loc2[0], loc2[1])
+            seg_info.append((seg.id, seg, mid_lat, mid_lon, seg_bearing))
+
+        # Sort by latitude for pre-filtering
+        seg_info.sort(key=lambda x: x[2])
+
+        # Approximate latitude degrees per meter (for pre-filter)
+        lat_per_meter = 1.0 / 111_320
+        lat_margin = proximity * lat_per_meter
+
+        pair_count = 0
+        n = len(seg_info)
+        for i in range(n):
+            id_a, seg_a, lat_a, lon_a, bearing_a = seg_info[i]
+            nodes_a = {seg_a.node1, seg_a.node2}
+            for j in range(i + 1, n):
+                id_b, seg_b, lat_b, lon_b, bearing_b = seg_info[j]
+                # Latitude pre-filter: skip if too far apart
+                if lat_b - lat_a > lat_margin:
+                    break
+                # Must be from different OSM ways
+                if seg_a.way_id == seg_b.way_id:
+                    continue
+                # Must not share nodes
+                if seg_b.node1 in nodes_a or seg_b.node2 in nodes_a:
+                    continue
+                # Check bearing parallelism
+                if not are_bearings_parallel(bearing_a, bearing_b, angle_threshold):
+                    continue
+                # Check midpoint proximity
+                if haversine_distance(lat_a, lon_a, lat_b, lon_b) >= proximity:
+                    continue
+                # Record bidirectional mapping
+                self.parallel_segments.setdefault(id_a, set()).add(id_b)
+                self.parallel_segments.setdefault(id_b, set()).add(id_a)
+                pair_count += 1
+
+        if pair_count:
+            print(f"Detected {pair_count} parallel segment pairs for corridor deduplication")
 
     def find_nearest_node(self, lat: float, lon: float) -> Optional[int]:
         """Find the nearest graph node to a location"""

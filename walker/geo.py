@@ -188,6 +188,26 @@ def point_in_any_polygon(lat: float, lon: float, polygons: list[list[list[float]
     return any(point_in_polygon(lat, lon, poly) for poly in polygons)
 
 
+def are_bearings_parallel(bearing1: float, bearing2: float, threshold: float = 30) -> bool:
+    """Check if two bearings are parallel (same OR opposite direction).
+
+    Normalizes both bearings to 0-180 range so that e.g. 45° and 225° are
+    considered parallel (both map to 45°).
+    """
+    b1 = bearing1 % 360
+    b2 = bearing2 % 360
+    # Collapse to 0-180 range (direction-agnostic)
+    if b1 >= 180:
+        b1 -= 180
+    if b2 >= 180:
+        b2 -= 180
+    diff = abs(b1 - b2)
+    # Handle wrap-around at 0/180 boundary
+    if diff > 90:
+        diff = 180 - diff
+    return diff < threshold
+
+
 def is_opposite_direction(
     graph: "StreetGraph",
     candidate_from: int,
