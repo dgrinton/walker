@@ -12,12 +12,15 @@ from .geo import (
     relative_direction,
     is_opposite_direction,
     retry_with_backoff,
+    point_in_polygon,
+    point_in_any_polygon,
 )
 from .osm import OSMFetcher
 from .graph import StreetGraph
 from .history import HistoryDB
 from .audio import Audio
 from .planner import RoutePlanner
+from .zone_editor import ZoneEditorServer
 from .app import Walker
 from .__main__ import main
 
@@ -39,11 +42,14 @@ __all__ = [
     "relative_direction",
     "is_opposite_direction",
     "retry_with_backoff",
+    "point_in_polygon",
+    "point_in_any_polygon",
     "OSMFetcher",
     "StreetGraph",
     "HistoryDB",
     "Audio",
     "RoutePlanner",
+    "ZoneEditorServer",
     "Walker",
     "main",
 ]

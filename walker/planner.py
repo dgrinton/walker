@@ -6,7 +6,7 @@ import networkx as nx
 
 from .config import CONFIG
 from .models import Segment, RecentPathContext
-from .geo import haversine_distance, bearing_between, bearing_to_compass, relative_direction, is_opposite_direction
+from .geo import haversine_distance, bearing_between, bearing_to_compass, relative_direction, is_opposite_direction, point_in_any_polygon, segment_crosses_any_polygon
 from .graph import StreetGraph
 from .history import HistoryDB
 
@@ -14,7 +14,8 @@ from .history import HistoryDB
 class RoutePlanner:
     """Plans routes prioritizing novelty"""
 
-    def __init__(self, graph: StreetGraph, history: HistoryDB):
+    def __init__(self, graph: StreetGraph, history: HistoryDB,
+                 excluded_zones: Optional[list[list[list[float]]]] = None):
         self.graph = graph
         self.history = history
         self.start_node: Optional[int] = None
@@ -23,6 +24,37 @@ class RoutePlanner:
         self.current_path: list[int] = []
         self.planned_route: list[int] = []  # Full pre-calculated route
         self.route_index: int = 0  # Current position in planned_route
+        self.excluded_nodes: set[int] = set()
+        self._allowed_graph = self.graph.graph
+
+        if excluded_zones:
+            self._compute_excluded_nodes(excluded_zones)
+
+    def _compute_excluded_nodes(self, excluded_zones: list[list[list[float]]]):
+        """Pre-compute which nodes and edges are blocked by exclusion zones."""
+        for node_id in self.graph.graph.nodes:
+            loc = self.graph.get_node_location(node_id)
+            if loc and point_in_any_polygon(loc[0], loc[1], excluded_zones):
+                self.excluded_nodes.add(node_id)
+
+        # Find edges that cross through zones even if neither endpoint is inside
+        excluded_edges: set[tuple[int, int]] = set()
+        for u, v in self.graph.graph.edges:
+            if u in self.excluded_nodes or v in self.excluded_nodes:
+                continue  # Already handled by node exclusion
+            loc_u = self.graph.get_node_location(u)
+            loc_v = self.graph.get_node_location(v)
+            if loc_u and loc_v and segment_crosses_any_polygon(
+                loc_u[0], loc_u[1], loc_v[0], loc_v[1], excluded_zones
+            ):
+                excluded_edges.add((u, v))
+
+        if self.excluded_nodes or excluded_edges:
+            allowed_nodes = [n for n in self.graph.graph.nodes if n not in self.excluded_nodes]
+            self._allowed_graph = self.graph.graph.subgraph(allowed_nodes).copy()
+            for u, v in excluded_edges:
+                if self._allowed_graph.has_edge(u, v):
+                    self._allowed_graph.remove_edge(u, v)
 
     def start_walk(self, start_node: int, target_distance: float):
         """Initialize a new walk"""
@@ -41,6 +73,9 @@ class RoutePlanner:
         """
         self.start_node = start_node
         self.target_distance = target_distance
+
+        # Ensure start node is never excluded
+        self.excluded_nodes.discard(start_node)
 
         route = [start_node]
         current = start_node
@@ -67,7 +102,7 @@ class RoutePlanner:
                 # Find path back to start
                 try:
                     path_home = nx.shortest_path(
-                        self.graph.graph, current, start_node, weight="length"
+                        self._allowed_graph, current, start_node, weight="length"
                     )
                     # Add remaining path (excluding current which is already in route)
                     for node in path_home[1:]:
@@ -80,8 +115,10 @@ class RoutePlanner:
                 except nx.NetworkXNoPath:
                     break
 
-            # Get neighbors
-            neighbors = self.graph.get_neighbors(current)
+            # Get neighbors from allowed graph (respects exclusion zones)
+            if current not in self._allowed_graph:
+                break
+            neighbors = list(self._allowed_graph.neighbors(current))
             if not neighbors:
                 break
 
@@ -108,7 +145,7 @@ class RoutePlanner:
                 # No valid options, try to go home
                 try:
                     path_home = nx.shortest_path(
-                        self.graph.graph, current, start_node, weight="length"
+                        self._allowed_graph, current, start_node, weight="length"
                     )
                     for node in path_home[1:]:
                         segment = self.graph.get_segment(route[-1], node)
@@ -274,7 +311,9 @@ class RoutePlanner:
 
     def choose_next_direction(self, current_node: int, came_from: Optional[int] = None) -> Optional[int]:
         """Choose the best next node to walk to"""
-        neighbors = self.graph.get_neighbors(current_node)
+        if current_node not in self._allowed_graph:
+            return None
+        neighbors = list(self._allowed_graph.neighbors(current_node))
 
         if not neighbors:
             return None
@@ -299,7 +338,7 @@ class RoutePlanner:
                 # Find path back to start
                 try:
                     path = nx.shortest_path(
-                        self.graph.graph, current_node, self.start_node, weight="length"
+                        self._allowed_graph, current_node, self.start_node, weight="length"
                     )
                     if len(path) > 1:
                         return path[1]

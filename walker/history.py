@@ -1,5 +1,6 @@
 """History database for tracking walked segments."""
 
+import json
 import sqlite3
 from datetime import datetime
 from typing import Optional
@@ -9,7 +10,7 @@ class HistoryDB:
     """SQLite database for tracking walked segments"""
 
     def __init__(self, db_path: str = "walker_history.db"):
-        self.conn = sqlite3.connect(db_path)
+        self.conn = sqlite3.connect(db_path, check_same_thread=False)
         self._init_schema()
 
     def _init_schema(self):
@@ -29,6 +30,15 @@ class HistoryDB:
                 ended_at TEXT,
                 distance_meters REAL,
                 segments_walked INTEGER
+            )
+        """)
+        self.conn.execute("""
+            CREATE TABLE IF NOT EXISTS exclusion_zones (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL DEFAULT 'Unnamed Zone',
+                polygon TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
             )
         """)
         self.conn.commit()
@@ -90,6 +100,58 @@ class HistoryDB:
             "total_distance_km": (row[1] or 0) / 1000,
             "unique_segments": row[2] or 0
         }
+
+    def add_exclusion_zone(self, name: str, polygon: list[list[float]]) -> int:
+        """Add an exclusion zone. Returns the zone ID."""
+        now = datetime.now().isoformat()
+        cursor = self.conn.execute(
+            "INSERT INTO exclusion_zones (name, polygon, created_at, updated_at) VALUES (?, ?, ?, ?)",
+            (name, json.dumps(polygon), now, now)
+        )
+        self.conn.commit()
+        return cursor.lastrowid
+
+    def get_exclusion_zones(self) -> list[dict]:
+        """Get all exclusion zones."""
+        cursor = self.conn.execute(
+            "SELECT id, name, polygon, created_at, updated_at FROM exclusion_zones"
+        )
+        zones = []
+        for row in cursor.fetchall():
+            zones.append({
+                "id": row[0],
+                "name": row[1],
+                "polygon": json.loads(row[2]),
+                "created_at": row[3],
+                "updated_at": row[4],
+            })
+        return zones
+
+    def update_exclusion_zone(self, zone_id: int, name: Optional[str] = None,
+                              polygon: Optional[list[list[float]]] = None):
+        """Update an exclusion zone's name and/or polygon."""
+        now = datetime.now().isoformat()
+        if name is not None and polygon is not None:
+            self.conn.execute(
+                "UPDATE exclusion_zones SET name = ?, polygon = ?, updated_at = ? WHERE id = ?",
+                (name, json.dumps(polygon), now, zone_id)
+            )
+        elif name is not None:
+            self.conn.execute(
+                "UPDATE exclusion_zones SET name = ?, updated_at = ? WHERE id = ?",
+                (name, now, zone_id)
+            )
+        elif polygon is not None:
+            self.conn.execute(
+                "UPDATE exclusion_zones SET polygon = ?, updated_at = ? WHERE id = ?",
+                (json.dumps(polygon), now, zone_id)
+            )
+        self.conn.commit()
+
+    def delete_exclusion_zone(self, zone_id: int):
+        """Delete an exclusion zone."""
+        self.conn.execute("DELETE FROM exclusion_zones WHERE id = ?", (zone_id,))
+        self.conn.commit()
 
     def close(self):
         self.conn.close()

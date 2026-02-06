@@ -56,6 +56,8 @@ def main():
                         help="Export route to GPX file (preview mode)")
     parser.add_argument("--debug-gui", action="store_true",
                         help="Run with web-based visual debugger (requires --lat and --lon)")
+    parser.add_argument("--edit-zones", action="store_true",
+                        help="Open the exclusion zone editor")
 
     args = parser.parse_args()
 
@@ -66,6 +68,16 @@ def main():
     # Validate debug-gui requires lat/lon
     if args.debug_gui and (args.lat is None or args.lon is None):
         parser.error("--debug-gui requires --lat and --lon")
+
+    # Zone editor: early exit before creating Walker
+    if args.edit_zones:
+        from .zone_editor import ZoneEditorServer
+        from .history import HistoryDB
+        history = HistoryDB()
+        center = (args.lat, args.lon) if args.lat is not None else None
+        server = ZoneEditorServer(history, center=center)
+        server.start()
+        return
 
     # Convert km to meters
     distance = args.distance * 1000

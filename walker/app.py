@@ -236,8 +236,10 @@ class Walker:
         self.logger.log("Starting node", {"node": self.current_node, "lat": node_loc[0], "lon": node_loc[1]})
         print(f"Starting at node {self.current_node} ({node_loc[0]:.5f}, {node_loc[1]:.5f})")
 
-        # Initialize planner
-        self.planner = RoutePlanner(self.graph, self.history)
+        # Initialize planner with exclusion zones
+        zones = self.history.get_exclusion_zones()
+        excluded_polygons = [z['polygon'] for z in zones] if zones else None
+        self.planner = RoutePlanner(self.graph, self.history, excluded_zones=excluded_polygons)
 
         # Calculate the full route upfront
         print("Calculating route...")

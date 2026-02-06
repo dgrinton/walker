@@ -109,6 +109,85 @@ def relative_direction(from_bearing: float, to_bearing: float) -> str:
         return "slight left"
 
 
+def point_in_polygon(lat: float, lon: float, polygon: list[list[float]]) -> bool:
+    """Check if a point is inside a polygon using ray-casting algorithm.
+
+    Args:
+        lat: Point latitude
+        lon: Point longitude
+        polygon: List of [lat, lon] pairs defining the polygon vertices
+    """
+    n = len(polygon)
+    inside = False
+
+    j = n - 1
+    for i in range(n):
+        yi, xi = polygon[i]
+        yj, xj = polygon[j]
+
+        if ((yi > lon) != (yj > lon)) and (lat < (xj - xi) * (lon - yi) / (yj - yi) + xi):
+            inside = not inside
+        j = i
+
+    return inside
+
+
+def _segments_intersect(ax1: float, ay1: float, ax2: float, ay2: float,
+                        bx1: float, by1: float, bx2: float, by2: float) -> bool:
+    """Check if two line segments (a1-a2) and (b1-b2) intersect using cross products."""
+    def cross(ox: float, oy: float, px: float, py: float, qx: float, qy: float) -> float:
+        return (px - ox) * (qy - oy) - (py - oy) * (qx - ox)
+
+    d1 = cross(bx1, by1, bx2, by2, ax1, ay1)
+    d2 = cross(bx1, by1, bx2, by2, ax2, ay2)
+    d3 = cross(ax1, ay1, ax2, ay2, bx1, by1)
+    d4 = cross(ax1, ay1, ax2, ay2, bx2, by2)
+
+    if ((d1 > 0 and d2 < 0) or (d1 < 0 and d2 > 0)) and \
+       ((d3 > 0 and d4 < 0) or (d3 < 0 and d4 > 0)):
+        return True
+
+    return False
+
+
+def segment_crosses_polygon(lat1: float, lon1: float, lat2: float, lon2: float,
+                            polygon: list[list[float]]) -> bool:
+    """Check if a line segment crosses into or through a polygon.
+
+    Returns True if either endpoint is inside the polygon, or
+    if the segment intersects any edge of the polygon.
+    """
+    if point_in_polygon(lat1, lon1, polygon) or point_in_polygon(lat2, lon2, polygon):
+        return True
+
+    n = len(polygon)
+    for i in range(n):
+        j = (i + 1) % n
+        py1, px1 = polygon[i]
+        py2, px2 = polygon[j]
+        if _segments_intersect(lat1, lon1, lat2, lon2, py1, px1, py2, px2):
+            return True
+
+    return False
+
+
+def segment_crosses_any_polygon(lat1: float, lon1: float, lat2: float, lon2: float,
+                                polygons: list[list[list[float]]]) -> bool:
+    """Check if a line segment crosses into or through any of the given polygons."""
+    return any(segment_crosses_polygon(lat1, lon1, lat2, lon2, poly) for poly in polygons)
+
+
+def point_in_any_polygon(lat: float, lon: float, polygons: list[list[list[float]]]) -> bool:
+    """Check if a point is inside any of the given polygons.
+
+    Args:
+        lat: Point latitude
+        lon: Point longitude
+        polygons: List of polygons, each a list of [lat, lon] pairs
+    """
+    return any(point_in_polygon(lat, lon, poly) for poly in polygons)
+
+
 def is_opposite_direction(
     graph: "StreetGraph",
     candidate_from: int,
