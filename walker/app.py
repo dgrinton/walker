@@ -60,7 +60,7 @@ class Walker:
         self.segments_walked: int = 0
 
         # Verbose mode timing
-        self.last_audio_update = 0
+        self.last_distance_milestone = 0
         self.last_log_update = 0
         self.walk_start_time = 0
 
@@ -143,11 +143,6 @@ class Walker:
         if now - self.last_log_update >= CONFIG["log_interval"]:
             self.logger.log("STATE", self.get_state())
             self.last_log_update = now
-
-        # Audio update every 30 seconds
-        if now - self.last_audio_update >= CONFIG["audio_interval"]:
-            self._speak_status()
-            self.last_audio_update = now
 
     def initialize(self, target_distance: float) -> bool:
         """Initialize walk with GPS fix and map data"""
@@ -275,7 +270,6 @@ class Walker:
         self.next_node = self._get_next_waypoint()
 
         self.walk_start_time = time.time()
-        self.last_audio_update = time.time()
         self.last_log_update = time.time()
 
         # Immediate audio update with directions to first waypoint
@@ -715,32 +709,59 @@ class Walker:
             # Too close, skip this waypoint
             self.planner.advance_route()
 
-    def _speak_status(self):
-        """Speak current status: distance walked and bearing to next waypoint"""
+    def _get_direction_text(self) -> Optional[str]:
+        """Get direction text for next waypoint: '{compass}, {distance}'"""
+        if not self.next_node or not self.current_location or not self.graph:
+            return None
+        next_loc = self.graph.get_node_location(self.next_node)
+        if not next_loc:
+            return None
+        dist_to_next = haversine_distance(
+            self.current_location.lat, self.current_location.lon,
+            next_loc[0], next_loc[1]
+        )
+        bearing = bearing_between(
+            self.current_location.lat, self.current_location.lon,
+            next_loc[0], next_loc[1]
+        )
+        compass = bearing_to_compass(bearing)
+        return f"{compass}, {int(dist_to_next)}"
+
+    def _check_distance_milestone(self) -> Optional[int]:
+        """Check if a distance milestone was crossed. Returns total distance if so."""
         if not self.planner:
-            return
+            return None
+        walked = int(self.planner.walked_distance)
+        interval = CONFIG["distance_milestone_interval"]
+        current_milestone = (walked // interval) * interval
+        if current_milestone > self.last_distance_milestone and current_milestone > 0:
+            self.last_distance_milestone = current_milestone
+            return walked
+        return None
 
-        distance = int(self.planner.walked_distance)
-        status_parts = [str(distance)]
+    def _speak_waypoint_reached(self):
+        """Speak waypoint arrival: tone + direction + optional distance milestone"""
+        direction = self._get_direction_text()
+        milestone = self._check_distance_milestone()
 
-        # Add distance and bearing to next waypoint
-        if self.next_node and self.current_location and self.graph:
-            next_loc = self.graph.get_node_location(self.next_node)
-            if next_loc:
-                dist_to_next = haversine_distance(
-                    self.current_location.lat, self.current_location.lon,
-                    next_loc[0], next_loc[1]
-                )
-                bearing = bearing_between(
-                    self.current_location.lat, self.current_location.lon,
-                    next_loc[0], next_loc[1]
-                )
-                compass = bearing_to_compass(bearing)
-                status_parts.append(f"{int(dist_to_next)} {compass}")
+        parts = []
+        if direction:
+            parts.append(direction)
+        if milestone is not None:
+            parts.append(str(milestone))
 
-        status = ", ".join(status_parts)
-        self.audio.speak(status)
-        self.logger.log(f"AUDIO: {status}")
+        if parts:
+            self.audio.tone()
+            message = ". ".join(parts)
+            self.audio.speak(message)
+            self.logger.log(f"AUDIO: {message}")
+
+    def _speak_status(self):
+        """Speak direction to next waypoint (no tone). Used for initial direction and debug-gui."""
+        direction = self._get_direction_text()
+        if direction:
+            self.audio.speak(direction)
+            self.logger.log(f"AUDIO: {direction}")
 
     def update(self) -> bool:
         """Main update loop - returns False when walk is complete"""
@@ -820,8 +841,7 @@ class Walker:
 
             # Immediate audio update with directions to next waypoint
             if self.next_node:
-                self._speak_status()
-                self.last_audio_update = time.time()  # Reset periodic timer
+                self._speak_waypoint_reached()
 
             if not self.next_node:
                 # Reached end of planned route

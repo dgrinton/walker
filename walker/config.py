@@ -7,7 +7,6 @@ CONFIG = {
     "route_deviation_threshold": 50,  # meters - recalculate if user deviates this far
     "default_walk_distance": 2000,  # meters (2km default)
     "osm_fetch_radius": 1500,  # meters - area to fetch from OSM
-    "audio_interval": 30,  # seconds between audio status updates
     "log_interval": 10,  # seconds between log entries
     "min_waypoint_distance": 20,  # meters - skip waypoints closer than this
     # Road type weights (lower = preferred)
@@ -37,4 +36,5 @@ CONFIG = {
     "footpath_types": {"footway", "path", "pedestrian"},
     "busy_road_proximity_threshold": 30,  # meters
     "busy_road_proximity_penalty": 8,     # added to score (makes footway=1 effectively score like primary=9)
+    "distance_milestone_interval": 250,  # meters between distance announcements
 }

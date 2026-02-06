@@ -15,6 +15,18 @@ class Audio:
         cls.callback = callback
 
     @staticmethod
+    def tone():
+        """Play a brief high-pitched tone via espeak"""
+        try:
+            subprocess.run(
+                ["espeak", "-p", "99", "-s", "350", "dee"],
+                capture_output=True,
+                timeout=5
+            )
+        except Exception:
+            pass  # Tone is optional
+
+    @staticmethod
     def speak(text: str):
         """Speak text using espeak (available in Termux)"""
         # Send to callback if set (for debug GUI)
