@@ -58,6 +58,7 @@ class Walker:
 
         self.walk_id: Optional[int] = None
         self.segments_walked: int = 0
+        self._last_counted_index: int = 0  # Last route index for which distance was counted
 
         # Verbose mode timing
         self.last_distance_milestone = 0
@@ -682,6 +683,23 @@ class Walker:
         print("  All segments recorded to database")
         print("=" * 60)
 
+    def _count_segments_through(self, target_route_index: int):
+        """Count distance and record segments from _last_counted_index to target_route_index."""
+        route = self.planner.planned_route
+        for idx in range(self._last_counted_index, target_route_index):
+            seg = self.graph.get_segment(route[idx], route[idx + 1])
+            if seg:
+                self.history.record_segment(seg.id)
+                self.planner.walked_distance += seg.length
+                self.segments_walked += 1
+                self.logger.log("Walked segment", {
+                    "segment": seg.id,
+                    "length": seg.length,
+                    "total": self.planner.walked_distance,
+                    "name": seg.name
+                })
+        self._last_counted_index = target_route_index
+
     def _get_next_waypoint(self) -> Optional[int]:
         """Get next waypoint, skipping any that are too close to current location."""
         if not self.current_location or not self.planner or not self.graph:
@@ -811,19 +829,11 @@ class Walker:
         arrived_at_next = self.next_node and dist_to_next < CONFIG["intersection_arrival_radius"]
 
         if arrived_at_next:
-            # Arrived at expected next node on planned route
-            segment = self.graph.get_segment(self.current_node, self.next_node)
-            if segment:
-                self.history.record_segment(segment.id)
-                self.planner.walked_distance += segment.length
-                self.segments_walked += 1
-                self.logger.log(f"Walked segment", {
-                    "segment": segment.id,
-                    "length": segment.length,
-                    "total": self.planner.walked_distance,
-                    "name": segment.name
-                })
-                print(f"Walked {segment.length:.0f}m, total: {self.planner.walked_distance:.0f}m")
+            # Count all segments from last counted position to arrival
+            # next_node is always at route_index + 1 after _get_next_waypoint
+            arrival_index = self.planner.route_index + 1
+            self._count_segments_through(arrival_index)
+            print(f"Total: {self.planner.walked_distance:.0f}m")
 
             # Check if walk is complete (arrived back at start)
             if (self.next_node == self.planner.start_node and
@@ -844,6 +854,8 @@ class Walker:
                 self._speak_waypoint_reached()
 
             if not self.next_node:
+                # Count any remaining segments to end of route
+                self._count_segments_through(len(self.planner.planned_route) - 1)
                 # Reached end of planned route
                 if self.current_node == self.planner.start_node:
                     self.audio.speak("Walk complete")
