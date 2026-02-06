@@ -849,6 +849,10 @@ class Walker:
             self.planner.advance_route()
             self.next_node = self._get_next_waypoint()
 
+            # Send updated state to debug GUI immediately
+            if self.debug_server:
+                self.debug_server.send_state(self.get_state())
+
             # Immediate audio update with directions to next waypoint
             if self.next_node:
                 self._speak_waypoint_reached()
