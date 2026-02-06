@@ -2,7 +2,7 @@
 
 CONFIG = {
     "gps_poll_interval": 3,  # seconds
-    "intersection_arrival_radius": 15,  # meters
+    "intersection_arrival_radius": 20,  # meters
     "direction_warning_distance": 20,  # meters
     "route_deviation_threshold": 50,  # meters - recalculate if user deviates this far
     "default_walk_distance": 2000,  # meters (2km default)
@@ -32,4 +32,9 @@ CONFIG = {
     "parallel_angle_threshold": 30,    # degrees - how close to 180° counts as opposite
     "parallel_distance_threshold": 50,  # meters - max distance between parallel segments
     "recent_segment_history": 5,  # number of recent segments to check for backtracking
+    # Busy road proximity penalty (for footpaths alongside busy roads)
+    "busy_road_types": {"secondary", "primary", "trunk"},
+    "footpath_types": {"footway", "path", "pedestrian"},
+    "busy_road_proximity_threshold": 30,  # meters
+    "busy_road_proximity_penalty": 8,     # added to score (makes footway=1 effectively score like primary=9)
 }

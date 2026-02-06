@@ -16,7 +16,7 @@ class OSMFetcher:
         query = f"""
         [out:json][timeout:30];
         (
-          way["highway"~"^(footway|pedestrian|path|residential|living_street|service|unclassified|tertiary|secondary|primary)$"]
+          way["highway"~"^(footway|pedestrian|path|residential|living_street|service|unclassified|tertiary|secondary|primary|trunk)$"]
             (around:{radius},{lat},{lon});
         );
         out body;

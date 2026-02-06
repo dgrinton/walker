@@ -307,7 +307,10 @@ class RoutePlanner:
             if dist_to_start > remaining_budget * 0.9:
                 return float("inf")  # Can't return in budget
 
-        return road_weight + novelty_factor + backtrack_penalty
+        # Busy road proximity penalty for footpaths alongside busy roads
+        busy_road_penalty = CONFIG["busy_road_proximity_penalty"] if segment.busy_road_adjacent else 0
+
+        return road_weight + novelty_factor + backtrack_penalty + busy_road_penalty
 
     def choose_next_direction(self, current_node: int, came_from: Optional[int] = None) -> Optional[int]:
         """Choose the best next node to walk to"""

@@ -29,6 +29,7 @@ class Segment:
     name: Optional[str]
     road_type: str
     length: float  # meters
+    busy_road_adjacent: bool = False
 
     @classmethod
     def make_id(cls, node1: int, node2: int) -> str:

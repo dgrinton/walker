@@ -68,7 +68,46 @@ class StreetGraph:
                                     road_type=road_type,
                                     name=name)
 
+        self._flag_busy_road_adjacent()
         print(f"Built graph: {len(self.nodes)} nodes, {len(self.segments)} segments")
+
+    def _flag_busy_road_adjacent(self):
+        """Flag footpath segments that run alongside busy roads."""
+        busy_road_types = CONFIG["busy_road_types"]
+        footpath_types = CONFIG["footpath_types"]
+        threshold = CONFIG["busy_road_proximity_threshold"]
+
+        # Collect midpoints of all busy road segments
+        busy_midpoints = []
+        for segment in self.segments.values():
+            if segment.road_type in busy_road_types:
+                loc1 = self.nodes.get(segment.node1)
+                loc2 = self.nodes.get(segment.node2)
+                if loc1 and loc2:
+                    mid = ((loc1[0] + loc2[0]) / 2, (loc1[1] + loc2[1]) / 2)
+                    busy_midpoints.append(mid)
+
+        if not busy_midpoints:
+            return
+
+        # Check each footpath segment against busy road midpoints
+        flagged = 0
+        for segment in self.segments.values():
+            if segment.road_type not in footpath_types:
+                continue
+            loc1 = self.nodes.get(segment.node1)
+            loc2 = self.nodes.get(segment.node2)
+            if not loc1 or not loc2:
+                continue
+            mid = ((loc1[0] + loc2[0]) / 2, (loc1[1] + loc2[1]) / 2)
+            for busy_mid in busy_midpoints:
+                if haversine_distance(mid[0], mid[1], busy_mid[0], busy_mid[1]) < threshold:
+                    segment.busy_road_adjacent = True
+                    flagged += 1
+                    break
+
+        if flagged:
+            print(f"Flagged {flagged} footpath segments adjacent to busy roads")
 
     def find_nearest_node(self, lat: float, lon: float) -> Optional[int]:
         """Find the nearest graph node to a location"""
