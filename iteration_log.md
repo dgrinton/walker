@@ -52,3 +52,22 @@ Return path triggered at budget_threshold. 35 return nodes, 989m distance. This 
 ### Priority for next iteration
 
 1. **Restore return-home behavior** — Remove the debugging `break` at line 195 so the planner routes home when stuck instead of just stopping.
+
+---
+
+## Iteration 1: Restore return-home behavior
+
+**Route file:** `routes/route_002.json`
+**Date:** 2026-02-07
+**Change:** Removed debugging `break` in `planner.py` so `no_valid_options` triggers route-home via shortest path (with logging).
+
+### Result
+
+Route is identical to baseline (route_001). The `no_valid_options` code path was not triggered — the route hits `budget_threshold` return before ever running out of valid options. The fix is still correct (the dead code was a bug), but it has no effect on this particular route.
+
+**Return trigger:** `budget_threshold` (same as before)
+**Distance:** 2286m (unchanged)
+
+### Priority for next iteration
+
+The baseline analysis identified road weights as the primary issue. With footway=1 and residential=100, the planner is trapped on footways. This needs to be addressed before other improvements can take effect. However, per the plan, the next improvement is **virtual edges (15m jumps)**, which could also help by allowing the route to cross between disconnected footway networks.

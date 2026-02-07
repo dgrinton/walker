@@ -1,17 +1,19 @@
 {
-  "current_iteration": 0,
+  "current_iteration": 1,
   "status": "complete",
   "branch": "autonomous-route-improver",
   "route_files": [
-    {"file": "routes/route_001.json", "iteration": 0, "label": "baseline"}
+    {"file": "routes/route_001.json", "iteration": 0, "label": "baseline"},
+    {"file": "routes/route_002.json", "iteration": 1, "label": "restore_return_home"}
   ],
   "planned_improvements": [
-    "restore_return_home",
     "virtual_edges_15m",
     "convexity_bias",
     "intersection_simplification",
     "dead_end_hard_exclusion"
   ],
-  "completed_improvements": [],
-  "next_action": "Implement restore_return_home: remove debugging break at planner.py line 195, generate route_002, evaluate"
+  "completed_improvements": [
+    "restore_return_home"
+  ],
+  "next_action": "Implement virtual_edges_15m: add 15m virtual edges between close nodes (no busy road crossing), generate route_003, evaluate"
 }

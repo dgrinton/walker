@@ -261,19 +261,27 @@ class RoutePlanner:
                     })
 
             if not valid_options:
-                break  # for debugging
                 # No valid options, try to go home (penalizing already-used segments)
                 try:
                     path_home = nx.shortest_path(
                         self._allowed_graph, current, start_node,
                         weight=lambda u, v, d: self._return_path_weight(used_segments, u, v, d)
                     )
+                    return_distance = 0
                     for node in path_home[1:]:
                         segment = self.graph.get_segment(route[-1], node)
                         if segment:
                             distance += segment.length
+                            return_distance += segment.length
                             self._mark_segment_used(segment, used_segments)
                         route.append(node)
+                    if logger:
+                        logger.log_return_path(
+                            trigger="no_valid_options",
+                            triggered_at_step=step_index,
+                            return_nodes=path_home,
+                            return_distance=return_distance,
+                        )
                 except nx.NetworkXNoPath:
                     pass
                 break
