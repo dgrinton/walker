@@ -111,3 +111,39 @@ The baseline analysis identified road weights as the primary issue. With footway
 ### Priority for next iteration
 
 **Convexity bias** — add a scoring component that favors directions arcing back toward start after passing the midpoint. This will shorten the return path and create better loop shapes.
+
+---
+
+## Iteration 3: Convexity bias
+
+**Route file:** `routes/route_004.json`
+**Date:** 2026-02-07
+**Change:** Added convexity bias to `score_edge`. After 35% of target distance, penalty scales linearly with progress for moving away from start. Weight: 0.5 per meter of delta. Also fixed `self.walked_distance` sync in `calculate_full_route()` so `score_edge` has correct progress info.
+
+### Result
+
+| Metric | Route 003 | Route 004 | Change |
+|--------|-----------|-----------|--------|
+| Distance | 2059m | 1899m | -160m |
+| Explore steps | 34 | 36 | +2 |
+| Return nodes | 33 | 29 | -4 |
+| Return distance | 1026m | 892m | -134m |
+| Return % | 50% | 47% | -3pp |
+| Novelty | 87.9% | 87.5% | -0.4pp |
+
+### Analysis
+
+**Return path shortened by 134m**, route total closer to target (1899 vs 2000). The convexity bias creates penalties of up to 4.63 at step 28 (67.5m segment heading south at 67% progress).
+
+**U-turn introduced.** At step 31, a virtual edge u-turn (turn angle 179.7 degrees) appears because the convexity bias makes heading north (toward start) attractive. This creates an awkward physical route: go south past a point, then u-turn north via a virtual edge, then zigzag southwest.
+
+**Core limitation.** The convexity bias works on footway-vs-footway decisions but can't redirect the route to residential streets (weight gap too large). The route shape improved modestly but the fundamental issue remains: the route explores linearly south through connected footway networks, then the convexity bias starts fighting the southward trend too late to create a true loop.
+
+### Issues remaining
+1. U-turns and zigzags from convexity fighting limited options
+2. Short segments (56% under 15m) — intersection simplification needed
+3. Route still footway-dominated
+
+### Priority for next iteration
+
+**Intersection simplification** — merge chains of short segments (< 15m) into single logical steps. This reduces route complexity and eliminates the micro-navigation problem.

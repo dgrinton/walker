@@ -41,4 +41,7 @@ CONFIG = {
     "dead_end_penalty": 40,  # penalty for edges leading into dead ends
     # Virtual edges (close-node shortcuts)
     "virtual_edge_max_distance": 15,  # meters — max gap to bridge with virtual edge
+    # Convexity bias (loop shaping)
+    "convexity_onset": 0.35,   # fraction of target distance before bias kicks in
+    "convexity_weight": 0.5,   # penalty per meter of delta (moving away from start)
 }

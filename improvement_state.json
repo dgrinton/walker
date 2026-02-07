@@ -1,20 +1,21 @@
 {
-  "current_iteration": 2,
+  "current_iteration": 3,
   "status": "complete",
   "branch": "autonomous-route-improver",
   "route_files": [
     {"file": "routes/route_001.json", "iteration": 0, "label": "baseline"},
     {"file": "routes/route_002.json", "iteration": 1, "label": "restore_return_home"},
-    {"file": "routes/route_003.json", "iteration": 2, "label": "virtual_edges_15m"}
+    {"file": "routes/route_003.json", "iteration": 2, "label": "virtual_edges_15m"},
+    {"file": "routes/route_004.json", "iteration": 3, "label": "convexity_bias"}
   ],
   "planned_improvements": [
-    "convexity_bias",
     "intersection_simplification",
     "dead_end_hard_exclusion"
   ],
   "completed_improvements": [
     "restore_return_home",
-    "virtual_edges_15m"
+    "virtual_edges_15m",
+    "convexity_bias"
   ],
-  "next_action": "Implement convexity_bias: add scoring component favoring directions toward start after midpoint, generate route_004, evaluate"
+  "next_action": "Implement intersection_simplification: merge chains of short segments into single steps, generate route_005, evaluate"
 }

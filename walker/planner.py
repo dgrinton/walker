@@ -130,6 +130,7 @@ class RoutePlanner:
         current = start_node
         previous = None
         distance = 0
+        self.walked_distance = 0  # Keep in sync for score_edge
         used_segments: set[str] = set()  # Track segments used in this route
         self._walk_buffers: list[list[list[float]]] = []  # Buffer polygons around walked segments
         step_index = 0
@@ -285,6 +286,9 @@ class RoutePlanner:
                 except nx.NetworkXNoPath:
                     pass
                 break
+
+            # Sync walked_distance for score_edge (convexity bias)
+            self.walked_distance = distance
 
             # Score all valid options and pick the best
             if logging:
@@ -505,7 +509,25 @@ class RoutePlanner:
         # Dead-end penalty — avoid entering chains that lead to dead ends
         dead_end_penalty = CONFIG["dead_end_penalty"] if self._is_dead_end_chain(to_node, from_node) else 0
 
-        score = road_weight + novelty_factor + busy_road_penalty + dead_end_penalty
+        # Convexity bias — after midpoint, prefer directions that arc back toward start
+        convexity_penalty = 0
+        progress = self.walked_distance / self.target_distance if self.target_distance > 0 else 0
+        if progress > CONFIG["convexity_onset"] and to_loc and start_loc:
+            from_loc = self.graph.get_node_location(from_node)
+            if from_loc:
+                from_dist = haversine_distance(
+                    from_loc[0], from_loc[1], start_loc[0], start_loc[1]
+                )
+                to_dist = haversine_distance(
+                    to_loc[0], to_loc[1], start_loc[0], start_loc[1]
+                )
+                # Positive if moving away from start, negative if moving toward
+                delta = to_dist - from_dist
+                # Scale penalty: stronger as we progress further past midpoint
+                strength = (progress - CONFIG["convexity_onset"]) / (1 - CONFIG["convexity_onset"])
+                convexity_penalty = delta * CONFIG["convexity_weight"] * strength
+
+        score = road_weight + novelty_factor + busy_road_penalty + dead_end_penalty + convexity_penalty
 
         if return_breakdown:
             return score, {
@@ -513,6 +535,7 @@ class RoutePlanner:
                 "novelty_factor": novelty_factor,
                 "busy_road_penalty": busy_road_penalty,
                 "dead_end_penalty": dead_end_penalty,
+                "convexity_penalty": round(convexity_penalty, 2),
             }
         return score
 
