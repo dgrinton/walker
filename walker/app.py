@@ -26,7 +26,8 @@ class Walker:
                  start_location: Optional[tuple[float, float]] = None,
                  html_output: Optional[str] = None,
                  gpx_output: Optional[str] = None,
-                 debug_gui: bool = False):
+                 debug_gui: bool = False,
+                 route_log_path: Optional[str] = None):
         self.gps = GPS()
         self.audio = Audio()
         self.history = HistoryDB()
@@ -38,6 +39,7 @@ class Walker:
         self.html_output = html_output  # HTML file for route visualization
         self.gpx_output = gpx_output  # GPX file for navigation apps
         self.debug_gui = debug_gui
+        self.route_log_path = route_log_path  # JSON file for route logging
 
         # Debug GUI server
         self.debug_server: Optional[DebugServer] = None
@@ -244,6 +246,10 @@ class Walker:
         zones = self.history.get_exclusion_zones()
         excluded_polygons = [z['polygon'] for z in zones] if zones else None
         self.planner = RoutePlanner(self.graph, self.history, excluded_zones=excluded_polygons)
+
+        # Enable route logging if requested
+        if self.route_log_path:
+            self.planner.enable_route_logging(self.route_log_path)
 
         # Calculate the full route upfront
         print("Calculating route...")

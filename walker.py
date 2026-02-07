@@ -23,6 +23,7 @@ Options:
     --debug-gui       Run with web-based visual debugger (requires --lat/--lon)
     --edit-zones      Open the exclusion zone editor
     --reset           Erase all walked segment history and exit
+    --debug-parallels Interactive map of parallel/corridor exclusions (requires --lat/--lon)
 """
 
 from walker import main

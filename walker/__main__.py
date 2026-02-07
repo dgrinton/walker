@@ -303,6 +303,8 @@ def main():
                         help="Open the exclusion zone editor")
     parser.add_argument("--reset", action="store_true",
                         help="Erase all walked segment history and exit")
+    parser.add_argument("--route-log", metavar="FILE",
+                        help="Save route decision log to JSON file (for route analysis)")
     parser.add_argument("--debug-parallels", action="store_true",
                         help="Generate interactive map showing parallel/corridor exclusions (requires --lat/--lon)")
 
@@ -367,7 +369,8 @@ def main():
         start_location=start_location,
         html_output=args.html,
         gpx_output=args.gpx,
-        debug_gui=args.debug_gui
+        debug_gui=args.debug_gui,
+        route_log_path=args.route_log,
     )
 
     # Set up GPS source

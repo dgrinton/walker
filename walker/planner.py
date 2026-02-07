@@ -9,6 +9,7 @@ from .models import Segment
 from .geo import haversine_distance, bearing_between, bearing_to_compass, relative_direction, point_in_any_polygon, segment_crosses_any_polygon, segment_buffer_polygon
 from .graph import StreetGraph
 from .history import HistoryDB
+from .route_log import RouteLogger
 
 
 class RoutePlanner:
@@ -26,6 +27,9 @@ class RoutePlanner:
         self.route_index: int = 0  # Current position in planned_route
         self.excluded_nodes: set[int] = set()
         self._allowed_graph = self.graph.graph
+        self._route_logging_enabled = False
+        self._route_log_path: Optional[str] = None
+        self._route_logger: Optional[RouteLogger] = None
 
         if excluded_zones:
             self._compute_excluded_nodes(excluded_zones)
@@ -96,6 +100,11 @@ class RoutePlanner:
             return length * 10
         return length
 
+    def enable_route_logging(self, path: str):
+        """Enable route logging. Must be called before calculate_full_route()."""
+        self._route_logging_enabled = True
+        self._route_log_path = path
+
     def start_walk(self, start_node: int, target_distance: float):
         """Initialize a new walk"""
         self.start_node = start_node
@@ -123,6 +132,24 @@ class RoutePlanner:
         distance = 0
         used_segments: set[str] = set()  # Track segments used in this route
         self._walk_buffers: list[list[list[float]]] = []  # Buffer polygons around walked segments
+        step_index = 0
+        prev_bearing: Optional[float] = None
+
+        # Set up route logging if enabled
+        logging = self._route_logging_enabled
+        logger: Optional[RouteLogger] = None
+        if logging:
+            start_loc = self.graph.get_node_location(start_node)
+            if start_loc:
+                logger = RouteLogger(
+                    start_node=start_node,
+                    start_location=start_loc,
+                    target_distance=target_distance,
+                    graph_stats={
+                        "total_nodes": len(self.graph.nodes),
+                        "total_segments": len(self.graph.segments),
+                    },
+                )
 
         while True:
             # Get current location
@@ -145,13 +172,22 @@ class RoutePlanner:
                         self._allowed_graph, current, start_node,
                         weight=lambda u, v, d: self._return_path_weight(used_segments, u, v, d)
                     )
+                    return_distance = 0
                     # Add remaining path (excluding current which is already in route)
                     for node in path_home[1:]:
                         segment = self.graph.get_segment(route[-1], node)
                         if segment:
                             distance += segment.length
+                            return_distance += segment.length
                             self._mark_segment_used(segment, used_segments)
                         route.append(node)
+                    if logger:
+                        logger.log_return_path(
+                            trigger="budget_threshold",
+                            triggered_at_step=step_index,
+                            return_nodes=path_home,
+                            return_distance=return_distance,
+                        )
                     break
                 except nx.NetworkXNoPath:
                     break
@@ -170,9 +206,21 @@ class RoutePlanner:
 
             # Filter options that would take us too far to return or cross walk buffers
             valid_options = []
+            rejected: list[dict] = []  # For logging
             for n in options:
                 n_loc = self.graph.get_node_location(n)
                 if not n_loc:
+                    if logging:
+                        seg = self.graph.get_segment(current, n)
+                        rejected.append({
+                            "to_node": n,
+                            "segment_id": seg.id if seg else Segment.make_id(current, n),
+                            "segment_name": seg.name if seg else None,
+                            "road_type": seg.road_type if seg else None,
+                            "score": None,
+                            "score_breakdown": None,
+                            "rejection_reason": "no_location",
+                        })
                     continue
                 # Skip if segment crosses any walk buffer polygon
                 if current_loc and self._walk_buffers:
@@ -181,6 +229,17 @@ class RoutePlanner:
                         n_loc[0], n_loc[1],
                         self._walk_buffers,
                     ):
+                        if logging:
+                            seg = self.graph.get_segment(current, n)
+                            rejected.append({
+                                "to_node": n,
+                                "segment_id": seg.id if seg else Segment.make_id(current, n),
+                                "segment_name": seg.name if seg else None,
+                                "road_type": seg.road_type if seg else None,
+                                "score": None,
+                                "score_breakdown": None,
+                                "rejection_reason": "buffer_crossing",
+                            })
                         continue
                 segment = self.graph.get_segment(current, n)
                 seg_len = segment.length if segment else 0
@@ -190,6 +249,16 @@ class RoutePlanner:
                 new_remaining = remaining_budget - seg_len
                 if new_remaining > n_dist_to_start * 0.9:
                     valid_options.append(n)
+                elif logging:
+                    rejected.append({
+                        "to_node": n,
+                        "segment_id": segment.id if segment else Segment.make_id(current, n),
+                        "segment_name": segment.name if segment else None,
+                        "road_type": segment.road_type if segment else None,
+                        "score": None,
+                        "score_breakdown": None,
+                        "rejection_reason": "budget_exceeded",
+                    })
 
             if not valid_options:
                 break  # for debugging
@@ -210,17 +279,84 @@ class RoutePlanner:
                 break
 
             # Score all valid options and pick the best
-            scored = [(n, self.score_edge(current, n, used_segments)) for n in valid_options]
-            scored.sort(key=lambda x: x[1])
+            if logging:
+                scored_with_breakdown = []
+                for n in valid_options:
+                    score, breakdown = self.score_edge(current, n, used_segments, return_breakdown=True)
+                    scored_with_breakdown.append((n, score, breakdown))
+                scored_with_breakdown.sort(key=lambda x: x[1])
+
+                # Build the simple scored list for choosing
+                scored = [(n, s) for n, s, _ in scored_with_breakdown]
+            else:
+                scored = [(n, self.score_edge(current, n, used_segments)) for n in valid_options]
+                scored.sort(key=lambda x: x[1])
 
             # Pick best option
             next_node = scored[0][0]
+            chosen_score = scored[0][1]
 
             # Record segment
             segment = self.graph.get_segment(current, next_node)
             if segment:
                 distance += segment.length
                 self._mark_segment_used(segment, used_segments)
+
+            # Log this step
+            if logger and segment:
+                next_loc = self.graph.get_node_location(next_node)
+                cur_bearing = bearing_between(
+                    current_loc[0], current_loc[1],
+                    next_loc[0], next_loc[1],
+                ) if next_loc else 0
+                turn_angle = None
+                if prev_bearing is not None:
+                    diff = cur_bearing - prev_bearing
+                    turn_angle = ((diff + 180) % 360) - 180
+
+                # Build alternatives list (non-chosen valid options + rejected)
+                alternatives = []
+                if logging:
+                    for n, s, bd in scored_with_breakdown[1:]:
+                        alt_seg = self.graph.get_segment(current, n)
+                        alternatives.append({
+                            "to_node": n,
+                            "segment_id": alt_seg.id if alt_seg else Segment.make_id(current, n),
+                            "segment_name": alt_seg.name if alt_seg else None,
+                            "road_type": alt_seg.road_type if alt_seg else None,
+                            "score": round(s, 2) if s != float("inf") else "inf",
+                            "score_breakdown": {k: round(v, 2) if isinstance(v, float) else v
+                                                for k, v in bd.items()},
+                            "rejection_reason": None,
+                        })
+                alternatives.extend(rejected)
+
+                # Get chosen breakdown
+                chosen_breakdown = scored_with_breakdown[0][2] if logging else {}
+
+                logger.log_step(
+                    step_index=step_index,
+                    from_node=current,
+                    to_node=next_node,
+                    segment_id=segment.id,
+                    segment_name=segment.name,
+                    road_type=segment.road_type,
+                    segment_length=segment.length,
+                    from_location=current_loc,
+                    to_location=next_loc,
+                    bearing=cur_bearing,
+                    turn_angle=turn_angle,
+                    busy_road_adjacent=segment.busy_road_adjacent,
+                    phase="explore",
+                    chosen_score=chosen_score,
+                    score_breakdown=chosen_breakdown,
+                    alternatives=alternatives,
+                    dist_to_start=dist_to_start,
+                    remaining_budget=remaining_budget,
+                    walk_buffers_count=len(self._walk_buffers),
+                )
+                prev_bearing = cur_bearing
+                step_index += 1
 
             route.append(next_node)
             previous = current
@@ -229,6 +365,13 @@ class RoutePlanner:
             # Safety check for infinite loops
             if len(route) > 10000:
                 break
+
+        # Save route log if enabled
+        if logger:
+            logger.finalize(distance)
+            if self._route_log_path:
+                logger.save(self._route_log_path)
+            self._route_logger = logger
 
         self.planned_route = route
         self.route_index = 0
@@ -290,7 +433,8 @@ class RoutePlanner:
         return new_route
 
     def score_edge(self, from_node: int, to_node: int,
-                   used_segments: Optional[set[str]] = None) -> float:
+                   used_segments: Optional[set[str]] = None,
+                   return_breakdown: bool = False):
         """Score an edge - lower is better.
 
         Considers:
@@ -298,9 +442,13 @@ class RoutePlanner:
         - Road type preference
         - Whether it helps complete a loop
         - Segments already used in the current route calculation
+
+        If return_breakdown is True, returns (score, breakdown_dict).
         """
         segment = self.graph.get_segment(from_node, to_node)
         if not segment:
+            if return_breakdown:
+                return float("inf"), {"error": "no_segment"}
             return float("inf")
 
         # Base score from road type
@@ -333,6 +481,14 @@ class RoutePlanner:
 
             # Penalize if this takes us too far to return
             if dist_to_start > remaining_budget * 0.9:
+                if return_breakdown:
+                    return float("inf"), {
+                        "road_weight": road_weight,
+                        "novelty_factor": novelty_factor,
+                        "busy_road_penalty": 0,
+                        "dead_end_penalty": 0,
+                        "over_budget": True,
+                    }
                 return float("inf")  # Can't return in budget
 
         # Busy road proximity penalty for footpaths alongside busy roads
@@ -341,7 +497,16 @@ class RoutePlanner:
         # Dead-end penalty — avoid entering chains that lead to dead ends
         dead_end_penalty = CONFIG["dead_end_penalty"] if self._is_dead_end_chain(to_node, from_node) else 0
 
-        return road_weight + novelty_factor + busy_road_penalty + dead_end_penalty
+        score = road_weight + novelty_factor + busy_road_penalty + dead_end_penalty
+
+        if return_breakdown:
+            return score, {
+                "road_weight": road_weight,
+                "novelty_factor": novelty_factor,
+                "busy_road_penalty": busy_road_penalty,
+                "dead_end_penalty": dead_end_penalty,
+            }
+        return score
 
     def choose_next_direction(self, current_node: int, came_from: Optional[int] = None) -> Optional[int]:
         """Choose the best next node to walk to"""
