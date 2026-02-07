@@ -16,6 +16,8 @@ Options:
     --html FILE       Output route visualization to HTML file (preview mode)
     --gpx FILE        Export route to GPX file (preview mode)
     --debug-gui       Run with web-based visual debugger (requires --lat/--lon)
+    --edit-zones      Open the exclusion zone editor
+    --reset           Erase all walked segment history and exit
 """
 
 import argparse
