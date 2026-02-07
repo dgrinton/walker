@@ -40,8 +40,10 @@ CONFIG = {
     "dead_end_lookahead": 10,  # steps to look ahead for dead-end detection
     "dead_end_penalty": 40,  # penalty for edges leading into dead ends
     # Virtual edges (close-node shortcuts)
-    "virtual_edge_max_distance": 15,  # meters — max gap to bridge with virtual edge
+    "virtual_edge_max_distance": 0,   # meters — 0 disables virtual edges
     # Convexity bias (loop shaping)
     "convexity_onset": 0.35,   # fraction of target distance before bias kicks in
     "convexity_weight": 0.5,   # penalty per meter of delta (moving away from start)
+    # Intersection simplification
+    "simplify_max_segment": 20,  # meters — max individual segment length to merge at degree-2 nodes (same-way only)
 }

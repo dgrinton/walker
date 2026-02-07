@@ -72,7 +72,9 @@ class StreetGraph:
                                     name=name)
 
         self._flag_busy_road_adjacent()
-        self._add_virtual_edges()
+        self._simplify_degree2_chains()
+        if CONFIG.get("virtual_edge_max_distance", 0) > 0:
+            self._add_virtual_edges()
         print(f"Built graph: {len(self.nodes)} nodes, {len(self.segments)} segments")
 
     def _flag_busy_road_adjacent(self):
@@ -112,6 +114,97 @@ class StreetGraph:
 
         if flagged:
             print(f"Flagged {flagged} footpath segments adjacent to busy roads")
+
+    def _simplify_degree2_chains(self):
+        """Contract degree-2 nodes where both adjacent segments are short.
+
+        A degree-2 node on the graph is not a real intersection — the walker
+        has no choice to make there.  When both segments touching such a node
+        are short (below simplify_max_segment), the node is removed and the
+        two segments are merged into one.  This eliminates micro-steps from
+        complex OSM intersection geometry.
+
+        Only merges when:
+        - Both segments share the same road_type
+        - Both segments are under max length
+        - The merged segment would also be under max length
+        """
+        max_seg = CONFIG["simplify_max_segment"]
+        removed = 0
+
+        # Iterate until no more contractions are possible
+        changed = True
+        while changed:
+            changed = False
+            for node_id in list(self.graph.nodes):
+                if node_id not in self.graph:
+                    continue
+                if self.graph.degree(node_id) != 2:
+                    continue
+                neighbors = list(self.graph.neighbors(node_id))
+                n1, n2 = neighbors[0], neighbors[1]
+
+                seg1 = self.get_segment(node_id, n1)
+                seg2 = self.get_segment(node_id, n2)
+                if not seg1 or not seg2:
+                    continue
+                # Only merge short segments of the same road type and OSM way
+                if seg1.length > max_seg or seg2.length > max_seg:
+                    continue
+                if seg1.road_type != seg2.road_type:
+                    continue
+                if seg1.way_id != seg2.way_id:
+                    continue
+                merged_length = seg1.length + seg2.length
+                # Don't merge if result would also be over threshold
+                if merged_length > max_seg:
+                    continue
+                # Don't merge if n1 == n2 (loop)
+                if n1 == n2:
+                    continue
+                # Already connected — skip
+                if self.graph.has_edge(n1, n2):
+                    continue
+
+                # Merge: create new segment n1—n2
+                merged_name = seg1.name or seg2.name
+                merged_way_id = seg1.way_id
+                merged_road_type = seg1.road_type
+                merged_busy = seg1.busy_road_adjacent or seg2.busy_road_adjacent
+
+                new_seg_id = Segment.make_id(n1, n2)
+                new_segment = Segment(
+                    id=new_seg_id,
+                    node1=min(n1, n2),
+                    node2=max(n1, n2),
+                    way_id=merged_way_id,
+                    name=merged_name,
+                    road_type=merged_road_type,
+                    length=merged_length,
+                    busy_road_adjacent=merged_busy,
+                )
+                self.segments[new_seg_id] = new_segment
+
+                weight = CONFIG["road_weights"].get(merged_road_type, CONFIG["default_road_weight"])
+                self.graph.add_edge(n1, n2,
+                                    segment_id=new_seg_id,
+                                    length=merged_length,
+                                    weight=weight * merged_length,
+                                    road_type=merged_road_type,
+                                    name=merged_name)
+
+                # Remove old segments and node
+                del self.segments[seg1.id]
+                del self.segments[seg2.id]
+                self.graph.remove_node(node_id)
+                del self.nodes[node_id]
+
+                removed += 1
+                changed = True
+                break  # Restart iteration after mutation
+
+        if removed:
+            print(f"Simplified {removed} degree-2 nodes (max segment {max_seg}m)")
 
     def _add_virtual_edges(self):
         """Add virtual edges between close nodes that aren't directly connected.

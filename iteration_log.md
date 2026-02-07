@@ -147,3 +147,49 @@ The baseline analysis identified road weights as the primary issue. With footway
 ### Priority for next iteration
 
 **Intersection simplification** — merge chains of short segments (< 15m) into single logical steps. This reduces route complexity and eliminates the micro-navigation problem.
+
+---
+
+## Iteration 4: Intersection simplification + road weight rebalance
+
+**Route file:** `routes/route_005.json`
+**Date:** 2026-02-08
+**Changes:**
+1. Road weights rebalanced by user: footway=1, residential=2, service=3, tertiary=5, secondary=7, primary=9 (was footway=1, everything else=100)
+2. Degree-2 node simplification: merge same-way, same-type segments under 20m at degree-2 nodes
+3. Virtual edges disabled (caused u-turn spam with new weights)
+
+### Result
+
+| Metric | Route 004 | Route 005 | Change |
+|--------|-----------|-----------|--------|
+| Distance | 1899m | 1885m | -14m |
+| Explore steps | 36 | 52 | +16 |
+| Return nodes | 29 | 29 | same |
+| Return distance | 892m | 844m | -48m |
+| Return % | 47% | 45% | -2pp |
+| Novelty | 87.5% | 82.5% | -5pp |
+| Short segments (<15m) | - | 30/52 (58%) | improved from 80% pre-simplification |
+| Named streets used | 0 | 5 (Thistle Grove, Graham Rd, Highett Rd, Train St, Livingston St, Worthing Rd) | major improvement |
+| Nodes simplified | 0 | 2876 | new |
+
+### Analysis
+
+**Road weight rebalance is the biggest win.** The route now uses residential streets (4 segments), tertiary roads (1), and named streets. This was the #1 issue from the baseline analysis and its resolution completely changes route character.
+
+**Simplification removed 2876 degree-2 nodes** (9051→6175). The same-way constraint prevents disconnecting paths that meet at degree-2 junctions between different OSM ways.
+
+**Virtual edges disabled.** With balanced weights, the planner naturally uses residential streets to cross between footway networks. Virtual edges caused severe u-turn spam (40+ u-turns in 128 steps) because pairs of close nodes created bidirectional shortcuts the planner oscillated between.
+
+**Short segments remain at 58%.** Same-way merging catches chains within a single OSM way, but many short segments occur at way boundaries (where two different OSM ways meet). These need cross-way simplification or a planner-level waypoint-merging pass.
+
+**Return path still 45%.** The `no_valid_options` trigger fires at 1042m explore distance. Walk buffers block the route before the budget threshold kicks in.
+
+### Issues remaining
+1. Return path 45% — buffers too aggressive or convexity too strong/early
+2. Short segments 58% — cross-way simplification needed
+3. Route only 1885m vs 2000m target
+
+### Priority for next iteration
+
+**Relax walk buffers** — the 50m buffer width may be too aggressive now that the planner uses streets. Consider reducing buffer width or raising the min-length threshold to allow more routing freedom.
