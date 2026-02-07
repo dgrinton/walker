@@ -23,6 +23,7 @@ CONFIG = {
         "primary": 100,
         "trunk": 100,
         "motorway": 100,  # effectively blocked
+        "virtual": 2,     # virtual edges (close-node shortcuts) — slightly above footway
     },
     "default_road_weight": 5,
     # Walk buffer polygon (anti-backtracking)
@@ -38,4 +39,6 @@ CONFIG = {
     "distance_milestone_interval": 250,  # meters between distance announcements
     "dead_end_lookahead": 10,  # steps to look ahead for dead-end detection
     "dead_end_penalty": 40,  # penalty for edges leading into dead ends
+    # Virtual edges (close-node shortcuts)
+    "virtual_edge_max_distance": 15,  # meters — max gap to bridge with virtual edge
 }

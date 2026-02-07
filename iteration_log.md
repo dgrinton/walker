@@ -71,3 +71,43 @@ Route is identical to baseline (route_001). The `no_valid_options` code path was
 ### Priority for next iteration
 
 The baseline analysis identified road weights as the primary issue. With footway=1 and residential=100, the planner is trapped on footways. This needs to be addressed before other improvements can take effect. However, per the plan, the next improvement is **virtual edges (15m jumps)**, which could also help by allowing the route to cross between disconnected footway networks.
+
+---
+
+## Iteration 2: Virtual edges (15m jumps)
+
+**Route file:** `routes/route_003.json`
+**Date:** 2026-02-07
+**Change:** Added virtual edges between nodes within 15m that aren't connected, filtering out edges crossing busy roads. Graph grew from 10,604 to 37,882 segments (27,278 virtual edges added).
+
+### Result
+
+| Metric | Route 001 | Route 003 | Change |
+|--------|-----------|-----------|--------|
+| Distance | 2286m | 2059m | -227m (closer to 2000m target) |
+| Explore steps | 36 | 34 | -2 |
+| Return nodes | 35 | 33 | -2 |
+| Return distance | 989m | 1026m | +37m |
+| Novelty | 57.7% | 87.9% | +30.2pp |
+| New segments | 41 | 58 | +17 |
+| Virtual edge steps | 0 | 14/34 (41%) | new |
+| Short segments (<15m) | 18/36 (50%) | 19/34 (56%) | slightly worse |
+
+### Analysis
+
+**Novelty dramatically improved.** Virtual edges allow the planner to jump between disconnected footway networks, finding fresh paths it couldn't reach before.
+
+**Route shape** is still not a convex loop. The explore phase goes south, then south-east, hitting Bay Road, then further south along footways, then turns west and south to Jack Road, then heads back north via virtual edges and Graham Road. The return path (1026m, 33 nodes) is still very long.
+
+**Virtual edges dominate short segments.** 14 of 34 explore steps are virtual edges, almost all under 15m. These are real crossings between disconnected paths (not OSM intersection complexity), but they still clutter the route. The route viewer will show these as unnamed segments.
+
+**Busy road adjacency** is reduced — only 2 steps show busy_road_adjacent=true (vs 6 in baseline).
+
+### Issues remaining
+1. No convexity bias — return path still ~50% of route
+2. Short segments still >50% — intersection simplification needed
+3. Route still footway-dominated (road_type=footway for most non-virtual steps)
+
+### Priority for next iteration
+
+**Convexity bias** — add a scoring component that favors directions arcing back toward start after passing the midpoint. This will shorten the return path and create better loop shapes.

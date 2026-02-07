@@ -1,19 +1,20 @@
 {
-  "current_iteration": 1,
+  "current_iteration": 2,
   "status": "complete",
   "branch": "autonomous-route-improver",
   "route_files": [
     {"file": "routes/route_001.json", "iteration": 0, "label": "baseline"},
-    {"file": "routes/route_002.json", "iteration": 1, "label": "restore_return_home"}
+    {"file": "routes/route_002.json", "iteration": 1, "label": "restore_return_home"},
+    {"file": "routes/route_003.json", "iteration": 2, "label": "virtual_edges_15m"}
   ],
   "planned_improvements": [
-    "virtual_edges_15m",
     "convexity_bias",
     "intersection_simplification",
     "dead_end_hard_exclusion"
   ],
   "completed_improvements": [
-    "restore_return_home"
+    "restore_return_home",
+    "virtual_edges_15m"
   ],
-  "next_action": "Implement virtual_edges_15m: add 15m virtual edges between close nodes (no busy road crossing), generate route_003, evaluate"
+  "next_action": "Implement convexity_bias: add scoring component favoring directions toward start after midpoint, generate route_004, evaluate"
 }

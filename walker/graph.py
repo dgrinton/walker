@@ -6,7 +6,7 @@ import networkx as nx
 
 from .config import CONFIG
 from .models import Segment
-from .geo import haversine_distance, bearing_between, are_bearings_parallel, point_to_segment_distance
+from .geo import haversine_distance, bearing_between, are_bearings_parallel, point_to_segment_distance, _segments_intersect
 
 
 class StreetGraph:
@@ -72,6 +72,7 @@ class StreetGraph:
                                     name=name)
 
         self._flag_busy_road_adjacent()
+        self._add_virtual_edges()
         print(f"Built graph: {len(self.nodes)} nodes, {len(self.segments)} segments")
 
     def _flag_busy_road_adjacent(self):
@@ -111,6 +112,81 @@ class StreetGraph:
 
         if flagged:
             print(f"Flagged {flagged} footpath segments adjacent to busy roads")
+
+    def _add_virtual_edges(self):
+        """Add virtual edges between close nodes that aren't directly connected.
+
+        Bridges gaps of up to virtual_edge_max_distance meters, allowing
+        the planner to cross between disconnected footway networks.
+        Virtual edges are not added if they would cross a busy road segment.
+        """
+        max_dist = CONFIG["virtual_edge_max_distance"]
+        busy_road_types = CONFIG["busy_road_types"]
+
+        # Collect busy road segments for crossing checks
+        busy_segments: list[tuple[float, float, float, float]] = []
+        for seg in self.segments.values():
+            if seg.road_type in busy_road_types:
+                loc1 = self.nodes.get(seg.node1)
+                loc2 = self.nodes.get(seg.node2)
+                if loc1 and loc2:
+                    busy_segments.append((loc1[0], loc1[1], loc2[0], loc2[1]))
+
+        # Sort nodes by latitude for spatial pre-filtering
+        sorted_nodes = sorted(self.nodes.items(), key=lambda x: x[1][0])
+        lat_per_meter = 1.0 / 111_320
+        lat_margin = max_dist * lat_per_meter
+
+        added = 0
+        n = len(sorted_nodes)
+        for i in range(n):
+            n1_id, (lat1, lon1) = sorted_nodes[i]
+            for j in range(i + 1, n):
+                n2_id, (lat2, lon2) = sorted_nodes[j]
+                # Latitude pre-filter
+                if lat2 - lat1 > lat_margin:
+                    break
+                # Skip if already connected
+                if self.graph.has_edge(n1_id, n2_id):
+                    continue
+                dist = haversine_distance(lat1, lon1, lat2, lon2)
+                if dist > max_dist or dist < 1:
+                    continue
+                # Check that virtual edge doesn't cross any busy road
+                crosses_busy = False
+                for blat1, blon1, blat2, blon2 in busy_segments:
+                    if _segments_intersect(lat1, lon1, lat2, lon2,
+                                           blat1, blon1, blat2, blon2):
+                        crosses_busy = True
+                        break
+                if crosses_busy:
+                    continue
+
+                # Create virtual segment and edge
+                seg_id = Segment.make_id(n1_id, n2_id)
+                if seg_id in self.segments:
+                    continue  # Already exists (shouldn't happen but be safe)
+                segment = Segment(
+                    id=seg_id,
+                    node1=min(n1_id, n2_id),
+                    node2=max(n1_id, n2_id),
+                    way_id=0,  # Virtual — no OSM way
+                    name=None,
+                    road_type="virtual",
+                    length=dist,
+                )
+                self.segments[seg_id] = segment
+                weight = CONFIG["default_road_weight"]
+                self.graph.add_edge(n1_id, n2_id,
+                                    segment_id=seg_id,
+                                    length=dist,
+                                    weight=weight * dist,
+                                    road_type="virtual",
+                                    name=None)
+                added += 1
+
+        if added:
+            print(f"Added {added} virtual edges (max {max_dist}m, no busy road crossing)")
 
     def _compute_parallel_segments(self):
         """Precompute mapping of parallel segments for corridor deduplication.
