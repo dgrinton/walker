@@ -153,5 +153,11 @@ class HistoryDB:
         self.conn.execute("DELETE FROM exclusion_zones WHERE id = ?", (zone_id,))
         self.conn.commit()
 
+    def reset_history(self):
+        """Delete all walked segment and walk session records. Preserves exclusion zones."""
+        self.conn.execute("DELETE FROM segment_history")
+        self.conn.execute("DELETE FROM walks")
+        self.conn.commit()
+
     def close(self):
         self.conn.close()

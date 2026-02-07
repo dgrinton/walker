@@ -58,6 +58,8 @@ def main():
                         help="Run with web-based visual debugger (requires --lat and --lon)")
     parser.add_argument("--edit-zones", action="store_true",
                         help="Open the exclusion zone editor")
+    parser.add_argument("--reset", action="store_true",
+                        help="Erase all walked segment history and exit")
 
     args = parser.parse_args()
 
@@ -68,6 +70,20 @@ def main():
     # Validate debug-gui requires lat/lon
     if args.debug_gui and (args.lat is None or args.lon is None):
         parser.error("--debug-gui requires --lat and --lon")
+
+    # Reset history: early exit
+    if args.reset:
+        from .history import HistoryDB
+        history = HistoryDB()
+        cursor = history.conn.execute("SELECT COUNT(*) FROM segment_history")
+        segment_count = cursor.fetchone()[0]
+        cursor = history.conn.execute("SELECT COUNT(*) FROM walks")
+        walk_count = cursor.fetchone()[0]
+        history.reset_history()
+        print(f"Cleared {segment_count} segment records and {walk_count} walk sessions.")
+        print("Exclusion zones preserved.")
+        history.close()
+        return
 
     # Zone editor: early exit before creating Walker
     if args.edit_zones:
