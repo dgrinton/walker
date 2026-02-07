@@ -27,7 +27,7 @@ CONFIG = {
     },
     "default_road_weight": 5,
     # Walk buffer polygon (anti-backtracking)
-    "walk_buffer_width": 50,       # meters - max width of hexagonal buffer around walked segments
+    "walk_buffer_width": 30,       # meters - max width of hexagonal buffer around walked segments
     "walk_buffer_tip_angle": 60,   # degrees - angle at the pointed tips of the buffer polygon
     "walk_buffer_end_inset": 10,   # meters - pull tips inward from segment endpoints
     "walk_buffer_min_length": 20,  # meters - skip buffer creation for segments shorter than this

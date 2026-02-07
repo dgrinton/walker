@@ -193,3 +193,46 @@ The baseline analysis identified road weights as the primary issue. With footway
 ### Priority for next iteration
 
 **Relax walk buffers** — the 50m buffer width may be too aggressive now that the planner uses streets. Consider reducing buffer width or raising the min-length threshold to allow more routing freedom.
+
+---
+
+## Iteration 5: Better simplification + buffer tuning
+
+**Route file:** `routes/route_006.json`
+**Date:** 2026-02-08
+**Changes:**
+1. Removed merged-length cap in simplification: same-way chains are fully contracted regardless of resulting segment length (was capped at 20m)
+2. Buffer width reduced from 50m to 30m
+
+### Result
+
+| Metric | Route 005 | Route 006 | Change |
+|--------|-----------|-----------|--------|
+| Distance | 1885m | 2285m | +400m |
+| Explore steps | 52 | 41 | -11 |
+| Return trigger | no_valid_options | budget_threshold | proper termination |
+| Return distance | 844m | 872m | +28m |
+| Return % | 45% | 38% | -7pp |
+| Short segments | 30/52 (58%) | 18/41 (44%) | -14pp |
+| Road types | 47 footway, 4 res | 15 footway, 25 res, 1 tert | streets dominant |
+| Novelty | 82.5% | 66% | -16.5pp |
+| Nodes simplified | 2876 | 3409 | +533 |
+
+### Analysis
+
+**Full chain simplification fixed the routing.** Removing the merged-length cap means entire same-way chains of short segments become single edges. Graph shrank from 6175 to 5642 nodes. Previously the planner got stuck at degree-2 nodes; now those nodes are eliminated.
+
+**Return trigger is now budget_threshold** — the planner explores 1413m before routing home via 872m return. No longer hits `no_valid_options`. This is the correct behavior.
+
+**Route heavily uses residential streets** (25/41 steps). This is the combined effect of the weight rebalance (residential=2 vs old 100) and better graph simplification. Novelty drops to 66% because residential streets around the start were previously walked.
+
+**Short segments at 44%** — still high but improved. Remaining short segments are at way boundaries where different OSM ways meet. These can't be simplified with same-way constraint.
+
+### Issues remaining
+1. Return path 38% of route — convexity bias could be tuned
+2. Short segments at 44% — cross-way simplification could help
+3. Novelty 66% — lower than footway-only routes, but more useful exploration
+
+### Priority for next iteration
+
+The system is now functional and producing reasonable routes. Pausing for evaluation.

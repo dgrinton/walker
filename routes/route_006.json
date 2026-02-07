@@ -1,0 +1,2163 @@
+{
+  "version": 1,
+  "generated_at": "2026-02-07T13:09:57.383264+00:00",
+  "iteration": 0,
+  "config": {
+    "gps_poll_interval": 3,
+    "intersection_arrival_radius": 20,
+    "direction_warning_distance": 20,
+    "route_deviation_threshold": 50,
+    "default_walk_distance": 2000,
+    "osm_fetch_radius": 1500,
+    "log_interval": 10,
+    "min_waypoint_distance": 20,
+    "road_weights": {
+      "footway": 1,
+      "pedestrian": 1,
+      "path": 1,
+      "residential": 2,
+      "living_street": 2,
+      "service": 3,
+      "unclassified": 4,
+      "tertiary": 5,
+      "secondary": 7,
+      "primary": 9,
+      "trunk": 15,
+      "motorway": 100,
+      "virtual": 2
+    },
+    "default_road_weight": 5,
+    "walk_buffer_width": 30,
+    "walk_buffer_tip_angle": 60,
+    "walk_buffer_end_inset": 10,
+    "walk_buffer_min_length": 20,
+    "busy_road_types": [
+      "primary",
+      "secondary",
+      "trunk"
+    ],
+    "footpath_types": [
+      "footway",
+      "path",
+      "pedestrian"
+    ],
+    "busy_road_proximity_threshold": 30,
+    "busy_road_proximity_penalty": 8,
+    "distance_milestone_interval": 250,
+    "dead_end_lookahead": 10,
+    "dead_end_penalty": 40,
+    "virtual_edge_max_distance": 0,
+    "convexity_onset": 0.35,
+    "convexity_weight": 0.5,
+    "simplify_max_segment": 20
+  },
+  "start_node": 11031867609,
+  "start_location": {
+    "lat": -37.952256,
+    "lon": 145.0417928
+  },
+  "target_distance_m": 2000.0,
+  "actual_distance_m": 2284.9,
+  "graph_stats": {
+    "total_nodes": 5642,
+    "total_segments": 7195
+  },
+  "steps": [
+    {
+      "step_index": 0,
+      "from_node": 11031867609,
+      "to_node": 11031867579,
+      "segment_id": "11031867579-11031867609",
+      "segment_name": null,
+      "road_type": "footway",
+      "segment_length_m": 7.3,
+      "cumulative_distance_m": 7.3,
+      "from_location": {
+        "lat": -37.952256,
+        "lon": 145.0417928
+      },
+      "to_location": {
+        "lat": -37.9521968,
+        "lon": 145.0417593
+      },
+      "bearing": 336.0,
+      "turn_angle": null,
+      "busy_road_adjacent": false,
+      "decision": {
+        "phase": "explore",
+        "chosen_score": 1,
+        "score_breakdown": {
+          "road_weight": 1,
+          "novelty_factor": 0,
+          "busy_road_penalty": 0,
+          "dead_end_penalty": 0,
+          "convexity_penalty": 0
+        },
+        "alternatives": [
+          {
+            "to_node": 11031867582,
+            "segment_id": "11031867582-11031867609",
+            "segment_name": "Highett Grove",
+            "road_type": "residential",
+            "score": 2,
+            "score_breakdown": {
+              "road_weight": 2,
+              "novelty_factor": 0,
+              "busy_road_penalty": 0,
+              "dead_end_penalty": 0,
+              "convexity_penalty": 0
+            },
+            "rejection_reason": null
+          },
+          {
+            "to_node": 11031867587,
+            "segment_id": "11031867587-11031867609",
+            "segment_name": null,
+            "road_type": "footway",
+            "score": 16,
+            "score_breakdown": {
+              "road_weight": 1,
+              "novelty_factor": 15,
+              "busy_road_penalty": 0,
+              "dead_end_penalty": 0,
+              "convexity_penalty": 0
+            },
+            "rejection_reason": null
+          },
+          {
+            "to_node": 309575263,
+            "segment_id": "309575263-11031867609",
+            "segment_name": "Highett Grove",
+            "road_type": "residential",
+            "score": 17,
+            "score_breakdown": {
+              "road_weight": 2,
+              "novelty_factor": 15,
+              "busy_road_penalty": 0,
+              "dead_end_penalty": 0,
+              "convexity_penalty": 0
+            },
+            "rejection_reason": null
+          }
+        ]
+      },
+      "context": {
+        "dist_to_start_m": 0.0,
+        "remaining_budget_m": 2000.0,
+        "walk_buffers_count": 0
+      }
+    },
+    {
+      "step_index": 1,
+      "from_node": 11031867579,
+      "to_node": 11031867578,
+      "segment_id": "11031867578-11031867579",
+      "segment_name": null,
+      "road_type": "footway",
+      "segment_length_m": 46.3,
+      "cumulative_distance_m": 53.6,
+      "from_location": {
+        "lat": -37.9521968,
+        "lon": 145.0417593
+      },
+      "to_location": {
+        "lat": -37.9518356,
+        "lon": 145.0414958
+      },
+      "bearing": 330.1,
+      "turn_angle": -5.9,
+      "busy_road_adjacent": false,
+      "decision": {
+        "phase": "explore",
+        "chosen_score": 21,
+        "score_breakdown": {
+          "road_weight": 1,
+          "novelty_factor": 20,
+          "busy_road_penalty": 0,
+          "dead_end_penalty": 0,
+          "convexity_penalty": 0
+        },
+        "alternatives": [
+          {
+            "to_node": 11031867580,
+            "segment_id": "11031867579-11031867580",
+            "segment_name": null,
+            "road_type": "footway",
+            "score": 41,
+            "score_breakdown": {
+              "road_weight": 1,
+              "novelty_factor": 0,
+              "busy_road_penalty": 0,
+              "dead_end_penalty": 40,
+              "convexity_penalty": 0
+            },
+            "rejection_reason": null
+          }
+        ]
+      },
+      "context": {
+        "dist_to_start_m": 7.2,
+        "remaining_budget_m": 1992.7,
+        "walk_buffers_count": 1
+      }
+    },
+    {
+      "step_index": 2,
+      "from_node": 11031867578,
+      "to_node": 11031867575,
+      "segment_id": "11031867575-11031867578",
+      "segment_name": null,
+      "road_type": "footway",
+      "segment_length_m": 169.3,
+      "cumulative_distance_m": 222.9,
+      "from_location": {
+        "lat": -37.9518356,
+        "lon": 145.0414958
+      },
+      "to_location": {
+        "lat": -37.9503307,
+        "lon": 145.041789
+      },
+      "bearing": 8.7,
+      "turn_angle": 38.6,
+      "busy_road_adjacent": false,
+      "decision": {
+        "phase": "explore",
+        "chosen_score": 21,
+        "score_breakdown": {
+          "road_weight": 1,
+          "novelty_factor": 20,
+          "busy_road_penalty": 0,
+          "dead_end_penalty": 0,
+          "convexity_penalty": 0
+        },
+        "alternatives": []
+      },
+      "context": {
+        "dist_to_start_m": 53.5,
+        "remaining_budget_m": 1946.4,
+        "walk_buffers_count": 2
+      }
+    },
+    {
+      "step_index": 3,
+      "from_node": 11031867575,
+      "to_node": 11031867576,
+      "segment_id": "11031867575-11031867576",
+      "segment_name": null,
+      "road_type": "footway",
+      "segment_length_m": 6.8,
+      "cumulative_distance_m": 229.7,
+      "from_location": {
+        "lat": -37.9503307,
+        "lon": 145.041789
+      },
+      "to_location": {
+        "lat": -37.9502703,
+        "lon": 145.0418004
+      },
+      "bearing": 8.5,
+      "turn_angle": -0.3,
+      "busy_road_adjacent": false,
+      "decision": {
+        "phase": "explore",
+        "chosen_score": 21,
+        "score_breakdown": {
+          "road_weight": 1,
+          "novelty_factor": 20,
+          "busy_road_penalty": 0,
+          "dead_end_penalty": 0,
+          "convexity_penalty": 0
+        },
+        "alternatives": []
+      },
+      "context": {
+        "dist_to_start_m": 214.1,
+        "remaining_budget_m": 1777.1,
+        "walk_buffers_count": 2
+      }
+    },
+    {
+      "step_index": 4,
+      "from_node": 11031867576,
+      "to_node": 309575049,
+      "segment_id": "309575049-11031867576",
+      "segment_name": "Thistle Grove",
+      "road_type": "residential",
+      "segment_length_m": 6.7,
+      "cumulative_distance_m": 236.4,
+      "from_location": {
+        "lat": -37.9502703,
+        "lon": 145.0418004
+      },
+      "to_location": {
+        "lat": -37.9502607,
+        "lon": 145.0417248
+      },
+      "bearing": 279.1,
+      "turn_angle": -89.3,
+      "busy_road_adjacent": false,
+      "decision": {
+        "phase": "explore",
+        "chosen_score": 2,
+        "score_breakdown": {
+          "road_weight": 2,
+          "novelty_factor": 0,
+          "busy_road_penalty": 0,
+          "dead_end_penalty": 0,
+          "convexity_penalty": 0
+        },
+        "alternatives": [
+          {
+            "to_node": 11031867570,
+            "segment_id": "11031867570-11031867576",
+            "segment_name": null,
+            "road_type": "footway",
+            "score": 21,
+            "score_breakdown": {
+              "road_weight": 1,
+              "novelty_factor": 20,
+              "busy_road_penalty": 0,
+              "dead_end_penalty": 0,
+              "convexity_penalty": 0
+            },
+            "rejection_reason": null
+          }
+        ]
+      },
+      "context": {
+        "dist_to_start_m": 220.8,
+        "remaining_budget_m": 1770.3,
+        "walk_buffers_count": 2
+      }
+    },
+    {
+      "step_index": 5,
+      "from_node": 309575049,
+      "to_node": 12651075637,
+      "segment_id": "309575049-12651075637",
+      "segment_name": "Graham Road",
+      "road_type": "residential",
+      "segment_length_m": 43.0,
+      "cumulative_distance_m": 279.4,
+      "from_location": {
+        "lat": -37.9502607,
+        "lon": 145.0417248
+      },
+      "to_location": {
+        "lat": -37.9498788,
+        "lon": 145.0417982
+      },
+      "bearing": 8.6,
+      "turn_angle": 89.5,
+      "busy_road_adjacent": false,
+      "decision": {
+        "phase": "explore",
+        "chosen_score": 17,
+        "score_breakdown": {
+          "road_weight": 2,
+          "novelty_factor": 15,
+          "busy_road_penalty": 0,
+          "dead_end_penalty": 0,
+          "convexity_penalty": 0
+        },
+        "alternatives": [
+          {
+            "to_node": 752188284,
+            "segment_id": "309575049-752188284",
+            "segment_name": "Graham Road",
+            "road_type": "residential",
+            "score": null,
+            "score_breakdown": null,
+            "rejection_reason": "buffer_crossing"
+          }
+        ]
+      },
+      "context": {
+        "dist_to_start_m": 221.9,
+        "remaining_budget_m": 1763.6,
+        "walk_buffers_count": 3
+      }
+    },
+    {
+      "step_index": 6,
+      "from_node": 12651075637,
+      "to_node": 12715408832,
+      "segment_id": "12651075637-12715408832",
+      "segment_name": null,
+      "road_type": "residential",
+      "segment_length_m": 6.9,
+      "cumulative_distance_m": 286.3,
+      "from_location": {
+        "lat": -37.9498788,
+        "lon": 145.0417982
+      },
+      "to_location": {
+        "lat": -37.9498691,
+        "lon": 145.0417199
+      },
+      "bearing": 278.9,
+      "turn_angle": -89.7,
+      "busy_road_adjacent": false,
+      "decision": {
+        "phase": "explore",
+        "chosen_score": 2,
+        "score_breakdown": {
+          "road_weight": 2,
+          "novelty_factor": 0,
+          "busy_road_penalty": 0,
+          "dead_end_penalty": 0,
+          "convexity_penalty": 0
+        },
+        "alternatives": [
+          {
+            "to_node": 3222368409,
+            "segment_id": "3222368409-12651075637",
+            "segment_name": "Graham Road",
+            "road_type": "residential",
+            "score": 17,
+            "score_breakdown": {
+              "road_weight": 2,
+              "novelty_factor": 15,
+              "busy_road_penalty": 0,
+              "dead_end_penalty": 0,
+              "convexity_penalty": 0
+            },
+            "rejection_reason": null
+          }
+        ]
+      },
+      "context": {
+        "dist_to_start_m": 264.3,
+        "remaining_budget_m": 1720.6,
+        "walk_buffers_count": 3
+      }
+    },
+    {
+      "step_index": 7,
+      "from_node": 12715408832,
+      "to_node": 11031867487,
+      "segment_id": "11031867487-12715408832",
+      "segment_name": null,
+      "road_type": "footway",
+      "segment_length_m": 41.3,
+      "cumulative_distance_m": 327.6,
+      "from_location": {
+        "lat": -37.9498691,
+        "lon": 145.0417199
+      },
+      "to_location": {
+        "lat": -37.9495019,
+        "lon": 145.0417919
+      },
+      "bearing": 8.8,
+      "turn_angle": 89.9,
+      "busy_road_adjacent": false,
+      "decision": {
+        "phase": "explore",
+        "chosen_score": 1,
+        "score_breakdown": {
+          "road_weight": 1,
+          "novelty_factor": 0,
+          "busy_road_penalty": 0,
+          "dead_end_penalty": 0,
+          "convexity_penalty": 0
+        },
+        "alternatives": [
+          {
+            "to_node": 12651075636,
+            "segment_id": "12651075636-12715408832",
+            "segment_name": null,
+            "road_type": "residential",
+            "score": 2,
+            "score_breakdown": {
+              "road_weight": 2,
+              "novelty_factor": 0,
+              "busy_road_penalty": 0,
+              "dead_end_penalty": 0,
+              "convexity_penalty": 0
+            },
+            "rejection_reason": null
+          },
+          {
+            "to_node": 11031867486,
+            "segment_id": "11031867486-12715408832",
+            "segment_name": null,
+            "road_type": "footway",
+            "score": null,
+            "score_breakdown": null,
+            "rejection_reason": "buffer_crossing"
+          }
+        ]
+      },
+      "context": {
+        "dist_to_start_m": 265.5,
+        "remaining_budget_m": 1713.7,
+        "walk_buffers_count": 4
+      }
+    },
+    {
+      "step_index": 8,
+      "from_node": 11031867487,
+      "to_node": 11031867492,
+      "segment_id": "11031867487-11031867492",
+      "segment_name": null,
+      "road_type": "footway",
+      "segment_length_m": 27.6,
+      "cumulative_distance_m": 355.2,
+      "from_location": {
+        "lat": -37.9495019,
+        "lon": 145.0417919
+      },
+      "to_location": {
+        "lat": -37.9492561,
+        "lon": 145.0418295
+      },
+      "bearing": 6.9,
+      "turn_angle": -1.9,
+      "busy_road_adjacent": false,
+      "decision": {
+        "phase": "explore",
+        "chosen_score": 1,
+        "score_breakdown": {
+          "road_weight": 1,
+          "novelty_factor": 0,
+          "busy_road_penalty": 0,
+          "dead_end_penalty": 0,
+          "convexity_penalty": 0
+        },
+        "alternatives": []
+      },
+      "context": {
+        "dist_to_start_m": 306.2,
+        "remaining_budget_m": 1672.4,
+        "walk_buffers_count": 5
+      }
+    },
+    {
+      "step_index": 9,
+      "from_node": 11031867492,
+      "to_node": 11031867493,
+      "segment_id": "11031867492-11031867493",
+      "segment_name": null,
+      "road_type": "footway",
+      "segment_length_m": 22.6,
+      "cumulative_distance_m": 377.8,
+      "from_location": {
+        "lat": -37.9492561,
+        "lon": 145.0418295
+      },
+      "to_location": {
+        "lat": -37.9490552,
+        "lon": 145.0418654
+      },
+      "bearing": 8.0,
+      "turn_angle": 1.1,
+      "busy_road_adjacent": false,
+      "decision": {
+        "phase": "explore",
+        "chosen_score": 1,
+        "score_breakdown": {
+          "road_weight": 1,
+          "novelty_factor": 0,
+          "busy_road_penalty": 0,
+          "dead_end_penalty": 0,
+          "convexity_penalty": 0
+        },
+        "alternatives": []
+      },
+      "context": {
+        "dist_to_start_m": 333.6,
+        "remaining_budget_m": 1644.8,
+        "walk_buffers_count": 6
+      }
+    },
+    {
+      "step_index": 10,
+      "from_node": 11031867493,
+      "to_node": 10558982728,
+      "segment_id": "10558982728-11031867493",
+      "segment_name": null,
+      "road_type": "footway",
+      "segment_length_m": 23.8,
+      "cumulative_distance_m": 401.6,
+      "from_location": {
+        "lat": -37.9490552,
+        "lon": 145.0418654
+      },
+      "to_location": {
+        "lat": -37.9488431,
+        "lon": 145.0418723
+      },
+      "bearing": 1.5,
+      "turn_angle": -6.6,
+      "busy_road_adjacent": false,
+      "decision": {
+        "phase": "explore",
+        "chosen_score": 1,
+        "score_breakdown": {
+          "road_weight": 1,
+          "novelty_factor": 0,
+          "busy_road_penalty": 0,
+          "dead_end_penalty": 0,
+          "convexity_penalty": 0
+        },
+        "alternatives": []
+      },
+      "context": {
+        "dist_to_start_m": 356.0,
+        "remaining_budget_m": 1622.2,
+        "walk_buffers_count": 7
+      }
+    },
+    {
+      "step_index": 11,
+      "from_node": 10558982728,
+      "to_node": 3222368410,
+      "segment_id": "3222368410-10558982728",
+      "segment_name": null,
+      "road_type": "footway",
+      "segment_length_m": 3.1,
+      "cumulative_distance_m": 404.7,
+      "from_location": {
+        "lat": -37.9488431,
+        "lon": 145.0418723
+      },
+      "to_location": {
+        "lat": -37.9488292,
+        "lon": 145.0419035
+      },
+      "bearing": 60.5,
+      "turn_angle": 59.1,
+      "busy_road_adjacent": false,
+      "decision": {
+        "phase": "explore",
+        "chosen_score": 16,
+        "score_breakdown": {
+          "road_weight": 1,
+          "novelty_factor": 15,
+          "busy_road_penalty": 0,
+          "dead_end_penalty": 0,
+          "convexity_penalty": 0
+        },
+        "alternatives": [
+          {
+            "to_node": 10558982727,
+            "segment_id": "10558982727-10558982728",
+            "segment_name": null,
+            "road_type": "footway",
+            "score": 16,
+            "score_breakdown": {
+              "road_weight": 1,
+              "novelty_factor": 15,
+              "busy_road_penalty": 0,
+              "dead_end_penalty": 0,
+              "convexity_penalty": 0
+            },
+            "rejection_reason": null
+          }
+        ]
+      },
+      "context": {
+        "dist_to_start_m": 379.6,
+        "remaining_budget_m": 1598.4,
+        "walk_buffers_count": 7
+      }
+    },
+    {
+      "step_index": 12,
+      "from_node": 3222368410,
+      "to_node": 10558982729,
+      "segment_id": "3222368410-10558982729",
+      "segment_name": null,
+      "road_type": "footway",
+      "segment_length_m": 4.6,
+      "cumulative_distance_m": 409.3,
+      "from_location": {
+        "lat": -37.9488292,
+        "lon": 145.0419035
+      },
+      "to_location": {
+        "lat": -37.9488053,
+        "lon": 145.0419464
+      },
+      "bearing": 54.8,
+      "turn_angle": -5.8,
+      "busy_road_adjacent": false,
+      "decision": {
+        "phase": "explore",
+        "chosen_score": 1,
+        "score_breakdown": {
+          "road_weight": 1,
+          "novelty_factor": 0,
+          "busy_road_penalty": 0,
+          "dead_end_penalty": 0,
+          "convexity_penalty": 0
+        },
+        "alternatives": [
+          {
+            "to_node": 3222368409,
+            "segment_id": "3222368409-3222368410",
+            "segment_name": null,
+            "road_type": "residential",
+            "score": 2,
+            "score_breakdown": {
+              "road_weight": 2,
+              "novelty_factor": 0,
+              "busy_road_penalty": 0,
+              "dead_end_penalty": 0,
+              "convexity_penalty": 0
+            },
+            "rejection_reason": null
+          },
+          {
+            "to_node": 3222368411,
+            "segment_id": "3222368410-3222368411",
+            "segment_name": null,
+            "road_type": "residential",
+            "score": 2,
+            "score_breakdown": {
+              "road_weight": 2,
+              "novelty_factor": 0,
+              "busy_road_penalty": 0,
+              "dead_end_penalty": 0,
+              "convexity_penalty": 0
+            },
+            "rejection_reason": null
+          }
+        ]
+      },
+      "context": {
+        "dist_to_start_m": 381.2,
+        "remaining_budget_m": 1595.3,
+        "walk_buffers_count": 7
+      }
+    },
+    {
+      "step_index": 13,
+      "from_node": 10558982729,
+      "to_node": 10558982739,
+      "segment_id": "10558982729-10558982739",
+      "segment_name": null,
+      "road_type": "footway",
+      "segment_length_m": 7.9,
+      "cumulative_distance_m": 417.2,
+      "from_location": {
+        "lat": -37.9488053,
+        "lon": 145.0419464
+      },
+      "to_location": {
+        "lat": -37.9487417,
+        "lon": 145.0419076
+      },
+      "bearing": 334.3,
+      "turn_angle": -80.5,
+      "busy_road_adjacent": false,
+      "decision": {
+        "phase": "explore",
+        "chosen_score": 1,
+        "score_breakdown": {
+          "road_weight": 1,
+          "novelty_factor": 0,
+          "busy_road_penalty": 0,
+          "dead_end_penalty": 0,
+          "convexity_penalty": 0
+        },
+        "alternatives": [
+          {
+            "to_node": 10558982750,
+            "segment_id": "10558982729-10558982750",
+            "segment_name": null,
+            "road_type": "footway",
+            "score": 1,
+            "score_breakdown": {
+              "road_weight": 1,
+              "novelty_factor": 0,
+              "busy_road_penalty": 0,
+              "dead_end_penalty": 0,
+              "convexity_penalty": 0
+            },
+            "rejection_reason": null
+          }
+        ]
+      },
+      "context": {
+        "dist_to_start_m": 383.9,
+        "remaining_budget_m": 1590.7,
+        "walk_buffers_count": 7
+      }
+    },
+    {
+      "step_index": 14,
+      "from_node": 10558982739,
+      "to_node": 3222368411,
+      "segment_id": "3222368411-10558982739",
+      "segment_name": "Highett Road",
+      "road_type": "tertiary",
+      "segment_length_m": 12.0,
+      "cumulative_distance_m": 429.2,
+      "from_location": {
+        "lat": -37.9487417,
+        "lon": 145.0419076
+      },
+      "to_location": {
+        "lat": -37.9487254,
+        "lon": 145.0417727
+      },
+      "bearing": 278.7,
+      "turn_angle": -55.6,
+      "busy_road_adjacent": false,
+      "decision": {
+        "phase": "explore",
+        "chosen_score": 5,
+        "score_breakdown": {
+          "road_weight": 5,
+          "novelty_factor": 0,
+          "busy_road_penalty": 0,
+          "dead_end_penalty": 0,
+          "convexity_penalty": 0
+        },
+        "alternatives": [
+          {
+            "to_node": 10558982731,
+            "segment_id": "10558982731-10558982739",
+            "segment_name": null,
+            "road_type": "footway",
+            "score": 16,
+            "score_breakdown": {
+              "road_weight": 1,
+              "novelty_factor": 15,
+              "busy_road_penalty": 0,
+              "dead_end_penalty": 0,
+              "convexity_penalty": 0
+            },
+            "rejection_reason": null
+          },
+          {
+            "to_node": 309574776,
+            "segment_id": "309574776-10558982739",
+            "segment_name": "Highett Road",
+            "road_type": "tertiary",
+            "score": 20,
+            "score_breakdown": {
+              "road_weight": 5,
+              "novelty_factor": 15,
+              "busy_road_penalty": 0,
+              "dead_end_penalty": 0,
+              "convexity_penalty": 0
+            },
+            "rejection_reason": null
+          }
+        ]
+      },
+      "context": {
+        "dist_to_start_m": 390.9,
+        "remaining_budget_m": 1582.8,
+        "walk_buffers_count": 7
+      }
+    },
+    {
+      "step_index": 15,
+      "from_node": 3222368411,
+      "to_node": 3222368410,
+      "segment_id": "3222368410-3222368411",
+      "segment_name": null,
+      "road_type": "residential",
+      "segment_length_m": 16.4,
+      "cumulative_distance_m": 445.6,
+      "from_location": {
+        "lat": -37.9487254,
+        "lon": 145.0417727
+      },
+      "to_location": {
+        "lat": -37.9488292,
+        "lon": 145.0419035
+      },
+      "bearing": 135.2,
+      "turn_angle": -143.5,
+      "busy_road_adjacent": false,
+      "decision": {
+        "phase": "explore",
+        "chosen_score": 2,
+        "score_breakdown": {
+          "road_weight": 2,
+          "novelty_factor": 0,
+          "busy_road_penalty": 0,
+          "dead_end_penalty": 0,
+          "convexity_penalty": 0
+        },
+        "alternatives": [
+          {
+            "to_node": 8093672256,
+            "segment_id": "3222368411-8093672256",
+            "segment_name": "Highett Road",
+            "road_type": "tertiary",
+            "score": 5,
+            "score_breakdown": {
+              "road_weight": 5,
+              "novelty_factor": 0,
+              "busy_road_penalty": 0,
+              "dead_end_penalty": 0,
+              "convexity_penalty": 0
+            },
+            "rejection_reason": null
+          }
+        ]
+      },
+      "context": {
+        "dist_to_start_m": 392.6,
+        "remaining_budget_m": 1570.8,
+        "walk_buffers_count": 7
+      }
+    },
+    {
+      "step_index": 16,
+      "from_node": 3222368410,
+      "to_node": 3222368409,
+      "segment_id": "3222368409-3222368410",
+      "segment_name": null,
+      "road_type": "residential",
+      "segment_length_m": 15.5,
+      "cumulative_distance_m": 461.1,
+      "from_location": {
+        "lat": -37.9488292,
+        "lon": 145.0419035
+      },
+      "to_location": {
+        "lat": -37.9489564,
+        "lon": 145.0419755
+      },
+      "bearing": 155.9,
+      "turn_angle": 20.8,
+      "busy_road_adjacent": false,
+      "decision": {
+        "phase": "explore",
+        "chosen_score": 2,
+        "score_breakdown": {
+          "road_weight": 2,
+          "novelty_factor": 0,
+          "busy_road_penalty": 0,
+          "dead_end_penalty": 0,
+          "convexity_penalty": 0
+        },
+        "alternatives": [
+          {
+            "to_node": 10558982729,
+            "segment_id": "3222368410-10558982729",
+            "segment_name": null,
+            "road_type": "footway",
+            "score": 51,
+            "score_breakdown": {
+              "road_weight": 1,
+              "novelty_factor": 50,
+              "busy_road_penalty": 0,
+              "dead_end_penalty": 0,
+              "convexity_penalty": 0
+            },
+            "rejection_reason": null
+          },
+          {
+            "to_node": 10558982728,
+            "segment_id": "3222368410-10558982728",
+            "segment_name": null,
+            "road_type": "footway",
+            "score": 56,
+            "score_breakdown": {
+              "road_weight": 1,
+              "novelty_factor": 55,
+              "busy_road_penalty": 0,
+              "dead_end_penalty": 0,
+              "convexity_penalty": 0
+            },
+            "rejection_reason": null
+          }
+        ]
+      },
+      "context": {
+        "dist_to_start_m": 381.2,
+        "remaining_budget_m": 1554.4,
+        "walk_buffers_count": 7
+      }
+    },
+    {
+      "step_index": 17,
+      "from_node": 3222368409,
+      "to_node": 10558982750,
+      "segment_id": "3222368409-10558982750",
+      "segment_name": "Graham Road",
+      "road_type": "residential",
+      "segment_length_m": 14.9,
+      "cumulative_distance_m": 476.0,
+      "from_location": {
+        "lat": -37.9489564,
+        "lon": 145.0419755
+      },
+      "to_location": {
+        "lat": -37.948824,
+        "lon": 145.0420032
+      },
+      "bearing": 9.4,
+      "turn_angle": -146.6,
+      "busy_road_adjacent": false,
+      "decision": {
+        "phase": "explore",
+        "chosen_score": 2,
+        "score_breakdown": {
+          "road_weight": 2,
+          "novelty_factor": 0,
+          "busy_road_penalty": 0,
+          "dead_end_penalty": 0,
+          "convexity_penalty": 0
+        },
+        "alternatives": [
+          {
+            "to_node": 12651075637,
+            "segment_id": "3222368409-12651075637",
+            "segment_name": "Graham Road",
+            "road_type": "residential",
+            "score": 17,
+            "score_breakdown": {
+              "road_weight": 2,
+              "novelty_factor": 15,
+              "busy_road_penalty": 0,
+              "dead_end_penalty": 0,
+              "convexity_penalty": 0
+            },
+            "rejection_reason": null
+          }
+        ]
+      },
+      "context": {
+        "dist_to_start_m": 367.2,
+        "remaining_budget_m": 1538.9,
+        "walk_buffers_count": 7
+      }
+    },
+    {
+      "step_index": 18,
+      "from_node": 10558982750,
+      "to_node": 10558982729,
+      "segment_id": "10558982729-10558982750",
+      "segment_name": null,
+      "road_type": "footway",
+      "segment_length_m": 5.4,
+      "cumulative_distance_m": 481.4,
+      "from_location": {
+        "lat": -37.948824,
+        "lon": 145.0420032
+      },
+      "to_location": {
+        "lat": -37.9488053,
+        "lon": 145.0419464
+      },
+      "bearing": 292.7,
+      "turn_angle": -76.7,
+      "busy_road_adjacent": false,
+      "decision": {
+        "phase": "explore",
+        "chosen_score": 1,
+        "score_breakdown": {
+          "road_weight": 1,
+          "novelty_factor": 0,
+          "busy_road_penalty": 0,
+          "dead_end_penalty": 0,
+          "convexity_penalty": 0
+        },
+        "alternatives": [
+          {
+            "to_node": 11031867568,
+            "segment_id": "10558982750-11031867568",
+            "segment_name": null,
+            "road_type": "footway",
+            "score": 1,
+            "score_breakdown": {
+              "road_weight": 1,
+              "novelty_factor": 0,
+              "busy_road_penalty": 0,
+              "dead_end_penalty": 0,
+              "convexity_penalty": 0
+            },
+            "rejection_reason": null
+          },
+          {
+            "to_node": 309574776,
+            "segment_id": "309574776-10558982750",
+            "segment_name": "Graham Road",
+            "road_type": "residential",
+            "score": 17,
+            "score_breakdown": {
+              "road_weight": 2,
+              "novelty_factor": 15,
+              "busy_road_penalty": 0,
+              "dead_end_penalty": 0,
+              "convexity_penalty": 0
+            },
+            "rejection_reason": null
+          }
+        ]
+      },
+      "context": {
+        "dist_to_start_m": 382.1,
+        "remaining_budget_m": 1524.0,
+        "walk_buffers_count": 7
+      }
+    },
+    {
+      "step_index": 19,
+      "from_node": 10558982729,
+      "to_node": 3222368410,
+      "segment_id": "3222368410-10558982729",
+      "segment_name": null,
+      "road_type": "footway",
+      "segment_length_m": 4.6,
+      "cumulative_distance_m": 486.0,
+      "from_location": {
+        "lat": -37.9488053,
+        "lon": 145.0419464
+      },
+      "to_location": {
+        "lat": -37.9488292,
+        "lon": 145.0419035
+      },
+      "bearing": 234.8,
+      "turn_angle": -57.9,
+      "busy_road_adjacent": false,
+      "decision": {
+        "phase": "explore",
+        "chosen_score": 51,
+        "score_breakdown": {
+          "road_weight": 1,
+          "novelty_factor": 50,
+          "busy_road_penalty": 0,
+          "dead_end_penalty": 0,
+          "convexity_penalty": 0
+        },
+        "alternatives": [
+          {
+            "to_node": 10558982739,
+            "segment_id": "10558982729-10558982739",
+            "segment_name": null,
+            "road_type": "footway",
+            "score": 51,
+            "score_breakdown": {
+              "road_weight": 1,
+              "novelty_factor": 50,
+              "busy_road_penalty": 0,
+              "dead_end_penalty": 0,
+              "convexity_penalty": 0
+            },
+            "rejection_reason": null
+          }
+        ]
+      },
+      "context": {
+        "dist_to_start_m": 383.9,
+        "remaining_budget_m": 1518.6,
+        "walk_buffers_count": 7
+      }
+    },
+    {
+      "step_index": 20,
+      "from_node": 3222368410,
+      "to_node": 3222368409,
+      "segment_id": "3222368409-3222368410",
+      "segment_name": null,
+      "road_type": "residential",
+      "segment_length_m": 15.5,
+      "cumulative_distance_m": 501.5,
+      "from_location": {
+        "lat": -37.9488292,
+        "lon": 145.0419035
+      },
+      "to_location": {
+        "lat": -37.9489564,
+        "lon": 145.0419755
+      },
+      "bearing": 155.9,
+      "turn_angle": -78.8,
+      "busy_road_adjacent": false,
+      "decision": {
+        "phase": "explore",
+        "chosen_score": 52,
+        "score_breakdown": {
+          "road_weight": 2,
+          "novelty_factor": 50,
+          "busy_road_penalty": 0,
+          "dead_end_penalty": 0,
+          "convexity_penalty": 0
+        },
+        "alternatives": [
+          {
+            "to_node": 3222368411,
+            "segment_id": "3222368410-3222368411",
+            "segment_name": null,
+            "road_type": "residential",
+            "score": 52,
+            "score_breakdown": {
+              "road_weight": 2,
+              "novelty_factor": 50,
+              "busy_road_penalty": 0,
+              "dead_end_penalty": 0,
+              "convexity_penalty": 0
+            },
+            "rejection_reason": null
+          },
+          {
+            "to_node": 10558982728,
+            "segment_id": "3222368410-10558982728",
+            "segment_name": null,
+            "road_type": "footway",
+            "score": 56,
+            "score_breakdown": {
+              "road_weight": 1,
+              "novelty_factor": 55,
+              "busy_road_penalty": 0,
+              "dead_end_penalty": 0,
+              "convexity_penalty": 0
+            },
+            "rejection_reason": null
+          }
+        ]
+      },
+      "context": {
+        "dist_to_start_m": 381.2,
+        "remaining_budget_m": 1514.0,
+        "walk_buffers_count": 7
+      }
+    },
+    {
+      "step_index": 21,
+      "from_node": 3222368409,
+      "to_node": 12651075637,
+      "segment_id": "3222368409-12651075637",
+      "segment_name": "Graham Road",
+      "road_type": "residential",
+      "segment_length_m": 103.7,
+      "cumulative_distance_m": 605.3,
+      "from_location": {
+        "lat": -37.9489564,
+        "lon": 145.0419755
+      },
+      "to_location": {
+        "lat": -37.9498788,
+        "lon": 145.0417982
+      },
+      "bearing": 188.6,
+      "turn_angle": 32.7,
+      "busy_road_adjacent": false,
+      "decision": {
+        "phase": "explore",
+        "chosen_score": 17,
+        "score_breakdown": {
+          "road_weight": 2,
+          "novelty_factor": 15,
+          "busy_road_penalty": 0,
+          "dead_end_penalty": 0,
+          "convexity_penalty": 0
+        },
+        "alternatives": [
+          {
+            "to_node": 10558982750,
+            "segment_id": "3222368409-10558982750",
+            "segment_name": "Graham Road",
+            "road_type": "residential",
+            "score": 52,
+            "score_breakdown": {
+              "road_weight": 2,
+              "novelty_factor": 50,
+              "busy_road_penalty": 0,
+              "dead_end_penalty": 0,
+              "convexity_penalty": 0
+            },
+            "rejection_reason": null
+          }
+        ]
+      },
+      "context": {
+        "dist_to_start_m": 367.2,
+        "remaining_budget_m": 1498.5,
+        "walk_buffers_count": 8
+      }
+    },
+    {
+      "step_index": 22,
+      "from_node": 12651075637,
+      "to_node": 12715408832,
+      "segment_id": "12651075637-12715408832",
+      "segment_name": null,
+      "road_type": "residential",
+      "segment_length_m": 6.9,
+      "cumulative_distance_m": 612.2,
+      "from_location": {
+        "lat": -37.9498788,
+        "lon": 145.0417982
+      },
+      "to_location": {
+        "lat": -37.9498691,
+        "lon": 145.0417199
+      },
+      "bearing": 278.9,
+      "turn_angle": 90.3,
+      "busy_road_adjacent": false,
+      "decision": {
+        "phase": "explore",
+        "chosen_score": 52,
+        "score_breakdown": {
+          "road_weight": 2,
+          "novelty_factor": 50,
+          "busy_road_penalty": 0,
+          "dead_end_penalty": 0,
+          "convexity_penalty": 0
+        },
+        "alternatives": [
+          {
+            "to_node": 309575049,
+            "segment_id": "309575049-12651075637",
+            "segment_name": "Graham Road",
+            "road_type": "residential",
+            "score": null,
+            "score_breakdown": null,
+            "rejection_reason": "buffer_crossing"
+          }
+        ]
+      },
+      "context": {
+        "dist_to_start_m": 264.3,
+        "remaining_budget_m": 1394.7,
+        "walk_buffers_count": 8
+      }
+    },
+    {
+      "step_index": 23,
+      "from_node": 12715408832,
+      "to_node": 12651075636,
+      "segment_id": "12651075636-12715408832",
+      "segment_name": null,
+      "road_type": "residential",
+      "segment_length_m": 105.2,
+      "cumulative_distance_m": 717.4,
+      "from_location": {
+        "lat": -37.9498691,
+        "lon": 145.0417199
+      },
+      "to_location": {
+        "lat": -37.9497216,
+        "lon": 145.0405349
+      },
+      "bearing": 279.0,
+      "turn_angle": 0.0,
+      "busy_road_adjacent": false,
+      "decision": {
+        "phase": "explore",
+        "chosen_score": 2,
+        "score_breakdown": {
+          "road_weight": 2,
+          "novelty_factor": 0,
+          "busy_road_penalty": 0,
+          "dead_end_penalty": 0,
+          "convexity_penalty": 0
+        },
+        "alternatives": [
+          {
+            "to_node": 11031867486,
+            "segment_id": "11031867486-12715408832",
+            "segment_name": null,
+            "road_type": "footway",
+            "score": null,
+            "score_breakdown": null,
+            "rejection_reason": "buffer_crossing"
+          },
+          {
+            "to_node": 11031867487,
+            "segment_id": "11031867487-12715408832",
+            "segment_name": null,
+            "road_type": "footway",
+            "score": null,
+            "score_breakdown": null,
+            "rejection_reason": "buffer_crossing"
+          }
+        ]
+      },
+      "context": {
+        "dist_to_start_m": 265.5,
+        "remaining_budget_m": 1387.8,
+        "walk_buffers_count": 9
+      }
+    },
+    {
+      "step_index": 24,
+      "from_node": 12651075636,
+      "to_node": 12651075634,
+      "segment_id": "12651075634-12651075636",
+      "segment_name": null,
+      "road_type": "residential",
+      "segment_length_m": 13.1,
+      "cumulative_distance_m": 730.5,
+      "from_location": {
+        "lat": -37.9497216,
+        "lon": 145.0405349
+      },
+      "to_location": {
+        "lat": -37.9497663,
+        "lon": 145.0404025
+      },
+      "bearing": 246.8,
+      "turn_angle": -32.1,
+      "busy_road_adjacent": false,
+      "decision": {
+        "phase": "explore",
+        "chosen_score": 2.0,
+        "score_breakdown": {
+          "road_weight": 2,
+          "novelty_factor": 0,
+          "busy_road_penalty": 0,
+          "dead_end_penalty": 0,
+          "convexity_penalty": -0.0
+        },
+        "alternatives": []
+      },
+      "context": {
+        "dist_to_start_m": 302.6,
+        "remaining_budget_m": 1282.6,
+        "walk_buffers_count": 9
+      }
+    },
+    {
+      "step_index": 25,
+      "from_node": 12651075634,
+      "to_node": 12651075633,
+      "segment_id": "12651075633-12651075634",
+      "segment_name": null,
+      "road_type": "residential",
+      "segment_length_m": 101.1,
+      "cumulative_distance_m": 831.7,
+      "from_location": {
+        "lat": -37.9497663,
+        "lon": 145.0404025
+      },
+      "to_location": {
+        "lat": -37.9506616,
+        "lon": 145.040199
+      },
+      "bearing": 190.2,
+      "turn_angle": -56.7,
+      "busy_road_adjacent": false,
+      "decision": {
+        "phase": "explore",
+        "chosen_score": 1.1,
+        "score_breakdown": {
+          "road_weight": 2,
+          "novelty_factor": 0,
+          "busy_road_penalty": 0,
+          "dead_end_penalty": 0,
+          "convexity_penalty": -0.9
+        },
+        "alternatives": []
+      },
+      "context": {
+        "dist_to_start_m": 302.5,
+        "remaining_budget_m": 1269.5,
+        "walk_buffers_count": 10
+      }
+    },
+    {
+      "step_index": 26,
+      "from_node": 12651075633,
+      "to_node": 12651075632,
+      "segment_id": "12651075632-12651075633",
+      "segment_name": null,
+      "road_type": "residential",
+      "segment_length_m": 8.2,
+      "cumulative_distance_m": 839.8,
+      "from_location": {
+        "lat": -37.9506616,
+        "lon": 145.040199
+      },
+      "to_location": {
+        "lat": -37.9507325,
+        "lon": 145.0402227
+      },
+      "bearing": 165.2,
+      "turn_angle": -24.9,
+      "busy_road_adjacent": false,
+      "decision": {
+        "phase": "explore",
+        "chosen_score": 1.62,
+        "score_breakdown": {
+          "road_weight": 2,
+          "novelty_factor": 0,
+          "busy_road_penalty": 0,
+          "dead_end_penalty": 0,
+          "convexity_penalty": -0.38
+        },
+        "alternatives": [
+          {
+            "to_node": 12651075638,
+            "segment_id": "12651075633-12651075638",
+            "segment_name": null,
+            "road_type": "service",
+            "score": 3.8,
+            "score_breakdown": {
+              "road_weight": 3,
+              "novelty_factor": 0,
+              "busy_road_penalty": 0,
+              "dead_end_penalty": 0,
+              "convexity_penalty": 0.8
+            },
+            "rejection_reason": null
+          }
+        ]
+      },
+      "context": {
+        "dist_to_start_m": 225.7,
+        "remaining_budget_m": 1168.3,
+        "walk_buffers_count": 10
+      }
+    },
+    {
+      "step_index": 27,
+      "from_node": 12651075632,
+      "to_node": 12651075631,
+      "segment_id": "12651075631-12651075632",
+      "segment_name": null,
+      "road_type": "residential",
+      "segment_length_m": 96.7,
+      "cumulative_distance_m": 936.5,
+      "from_location": {
+        "lat": -37.9507325,
+        "lon": 145.0402227
+      },
+      "to_location": {
+        "lat": -37.9515905,
+        "lon": 145.0400429
+      },
+      "bearing": 189.4,
+      "turn_angle": 24.1,
+      "busy_road_adjacent": false,
+      "decision": {
+        "phase": "explore",
+        "chosen_score": -0.58,
+        "score_breakdown": {
+          "road_weight": 2,
+          "novelty_factor": 0,
+          "busy_road_penalty": 0,
+          "dead_end_penalty": 0,
+          "convexity_penalty": -2.58
+        },
+        "alternatives": []
+      },
+      "context": {
+        "dist_to_start_m": 218.3,
+        "remaining_budget_m": 1160.2,
+        "walk_buffers_count": 11
+      }
+    },
+    {
+      "step_index": 28,
+      "from_node": 12651075631,
+      "to_node": 12651075630,
+      "segment_id": "12651075630-12651075631",
+      "segment_name": null,
+      "road_type": "residential",
+      "segment_length_m": 9.2,
+      "cumulative_distance_m": 945.7,
+      "from_location": {
+        "lat": -37.9515905,
+        "lon": 145.0400429
+      },
+      "to_location": {
+        "lat": -37.9516693,
+        "lon": 145.0400751
+      },
+      "bearing": 162.1,
+      "turn_angle": -27.2,
+      "busy_road_adjacent": false,
+      "decision": {
+        "phase": "explore",
+        "chosen_score": 1.43,
+        "score_breakdown": {
+          "road_weight": 2,
+          "novelty_factor": 0,
+          "busy_road_penalty": 0,
+          "dead_end_penalty": 0,
+          "convexity_penalty": -0.57
+        },
+        "alternatives": []
+      },
+      "context": {
+        "dist_to_start_m": 170.3,
+        "remaining_budget_m": 1063.5,
+        "walk_buffers_count": 11
+      }
+    },
+    {
+      "step_index": 29,
+      "from_node": 12651075630,
+      "to_node": 12651075644,
+      "segment_id": "12651075630-12651075644",
+      "segment_name": null,
+      "road_type": "residential",
+      "segment_length_m": 11.8,
+      "cumulative_distance_m": 957.5,
+      "from_location": {
+        "lat": -37.9516693,
+        "lon": 145.0400751
+      },
+      "to_location": {
+        "lat": -37.9517337,
+        "lon": 145.0399775
+      },
+      "bearing": 230.1,
+      "turn_angle": 67.9,
+      "busy_road_adjacent": false,
+      "decision": {
+        "phase": "explore",
+        "chosen_score": 2.5,
+        "score_breakdown": {
+          "road_weight": 2,
+          "novelty_factor": 0,
+          "busy_road_penalty": 0,
+          "dead_end_penalty": 0,
+          "convexity_penalty": 0.5
+        },
+        "alternatives": [
+          {
+            "to_node": 12651075611,
+            "segment_id": "12651075611-12651075630",
+            "segment_name": null,
+            "road_type": "residential",
+            "score": 16.76,
+            "score_breakdown": {
+              "road_weight": 2,
+              "novelty_factor": 15,
+              "busy_road_penalty": 0,
+              "dead_end_penalty": 0,
+              "convexity_penalty": -0.24
+            },
+            "rejection_reason": null
+          }
+        ]
+      },
+      "context": {
+        "dist_to_start_m": 164.1,
+        "remaining_budget_m": 1054.3,
+        "walk_buffers_count": 11
+      }
+    },
+    {
+      "step_index": 30,
+      "from_node": 12651075644,
+      "to_node": 12651075614,
+      "segment_id": "12651075614-12651075644",
+      "segment_name": null,
+      "road_type": "residential",
+      "segment_length_m": 19.3,
+      "cumulative_distance_m": 976.9,
+      "from_location": {
+        "lat": -37.9517337,
+        "lon": 145.0399775
+      },
+      "to_location": {
+        "lat": -37.9519001,
+        "lon": 145.0399199
+      },
+      "bearing": 195.3,
+      "turn_angle": -34.8,
+      "busy_road_adjacent": false,
+      "decision": {
+        "phase": "explore",
+        "chosen_score": 1.95,
+        "score_breakdown": {
+          "road_weight": 2,
+          "novelty_factor": 0,
+          "busy_road_penalty": 0,
+          "dead_end_penalty": 0,
+          "convexity_penalty": -0.05
+        },
+        "alternatives": [
+          {
+            "to_node": 12651075643,
+            "segment_id": "12651075643-12651075644",
+            "segment_name": null,
+            "road_type": "service",
+            "score": 3.49,
+            "score_breakdown": {
+              "road_weight": 3,
+              "novelty_factor": 0,
+              "busy_road_penalty": 0,
+              "dead_end_penalty": 0,
+              "convexity_penalty": 0.49
+            },
+            "rejection_reason": null
+          }
+        ]
+      },
+      "context": {
+        "dist_to_start_m": 169.4,
+        "remaining_budget_m": 1042.5,
+        "walk_buffers_count": 11
+      }
+    },
+    {
+      "step_index": 31,
+      "from_node": 12651075614,
+      "to_node": 12651075615,
+      "segment_id": "12651075614-12651075615",
+      "segment_name": null,
+      "road_type": "residential",
+      "segment_length_m": 80.5,
+      "cumulative_distance_m": 1057.3,
+      "from_location": {
+        "lat": -37.9519001,
+        "lon": 145.0399199
+      },
+      "to_location": {
+        "lat": -37.9526164,
+        "lon": 145.0397874
+      },
+      "bearing": 188.3,
+      "turn_angle": -7.0,
+      "busy_road_adjacent": false,
+      "decision": {
+        "phase": "explore",
+        "chosen_score": 18.22,
+        "score_breakdown": {
+          "road_weight": 2,
+          "novelty_factor": 15,
+          "busy_road_penalty": 0,
+          "dead_end_penalty": 0,
+          "convexity_penalty": 1.22
+        },
+        "alternatives": []
+      },
+      "context": {
+        "dist_to_start_m": 168.9,
+        "remaining_budget_m": 1023.1,
+        "walk_buffers_count": 12
+      }
+    },
+    {
+      "step_index": 32,
+      "from_node": 12651075615,
+      "to_node": 12715408836,
+      "segment_id": "12651075615-12715408836",
+      "segment_name": null,
+      "road_type": "residential",
+      "segment_length_m": 5.8,
+      "cumulative_distance_m": 1063.1,
+      "from_location": {
+        "lat": -37.9526164,
+        "lon": 145.0397874
+      },
+      "to_location": {
+        "lat": -37.9526664,
+        "lon": 145.0398055
+      },
+      "bearing": 164.1,
+      "turn_angle": -24.2,
+      "busy_road_adjacent": false,
+      "decision": {
+        "phase": "explore",
+        "chosen_score": 16.97,
+        "score_breakdown": {
+          "road_weight": 2,
+          "novelty_factor": 15,
+          "busy_road_penalty": 0,
+          "dead_end_penalty": 0,
+          "convexity_penalty": -0.03
+        },
+        "alternatives": []
+      },
+      "context": {
+        "dist_to_start_m": 180.3,
+        "remaining_budget_m": 942.7,
+        "walk_buffers_count": 12
+      }
+    },
+    {
+      "step_index": 33,
+      "from_node": 12715408836,
+      "to_node": 12651075629,
+      "segment_id": "12651075629-12715408836",
+      "segment_name": null,
+      "road_type": "residential",
+      "segment_length_m": 17.9,
+      "cumulative_distance_m": 1081.0,
+      "from_location": {
+        "lat": -37.9526664,
+        "lon": 145.0398055
+      },
+      "to_location": {
+        "lat": -37.9528065,
+        "lon": 145.0399031
+      },
+      "bearing": 151.2,
+      "turn_angle": -12.8,
+      "busy_road_adjacent": false,
+      "decision": {
+        "phase": "explore",
+        "chosen_score": 1.51,
+        "score_breakdown": {
+          "road_weight": 2,
+          "novelty_factor": 0,
+          "busy_road_penalty": 0,
+          "dead_end_penalty": 0,
+          "convexity_penalty": -0.49
+        },
+        "alternatives": [
+          {
+            "to_node": 12715408838,
+            "segment_id": "12715408836-12715408838",
+            "segment_name": null,
+            "road_type": "service",
+            "score": 44.67,
+            "score_breakdown": {
+              "road_weight": 3,
+              "novelty_factor": 0,
+              "busy_road_penalty": 0,
+              "dead_end_penalty": 40,
+              "convexity_penalty": 1.67
+            },
+            "rejection_reason": null
+          }
+        ]
+      },
+      "context": {
+        "dist_to_start_m": 180.1,
+        "remaining_budget_m": 936.9,
+        "walk_buffers_count": 12
+      }
+    },
+    {
+      "step_index": 34,
+      "from_node": 12651075629,
+      "to_node": 12651075617,
+      "segment_id": "12651075617-12651075629",
+      "segment_name": null,
+      "road_type": "residential",
+      "segment_length_m": 23.4,
+      "cumulative_distance_m": 1104.4,
+      "from_location": {
+        "lat": -37.9528065,
+        "lon": 145.0399031
+      },
+      "to_location": {
+        "lat": -37.9529857,
+        "lon": 145.0400429
+      },
+      "bearing": 148.4,
+      "turn_angle": -2.8,
+      "busy_road_adjacent": false,
+      "decision": {
+        "phase": "explore",
+        "chosen_score": 16.55,
+        "score_breakdown": {
+          "road_weight": 2,
+          "novelty_factor": 15,
+          "busy_road_penalty": 0,
+          "dead_end_penalty": 0,
+          "convexity_penalty": -0.45
+        },
+        "alternatives": []
+      },
+      "context": {
+        "dist_to_start_m": 176.6,
+        "remaining_budget_m": 919.0,
+        "walk_buffers_count": 13
+      }
+    },
+    {
+      "step_index": 35,
+      "from_node": 12651075617,
+      "to_node": 12651075619,
+      "segment_id": "12651075617-12651075619",
+      "segment_name": null,
+      "road_type": "residential",
+      "segment_length_m": 16.5,
+      "cumulative_distance_m": 1120.9,
+      "from_location": {
+        "lat": -37.9529857,
+        "lon": 145.0400429
+      },
+      "to_location": {
+        "lat": -37.9531237,
+        "lon": 145.0399956
+      },
+      "bearing": 195.1,
+      "turn_angle": 46.7,
+      "busy_road_adjacent": false,
+      "decision": {
+        "phase": "explore",
+        "chosen_score": 3.74,
+        "score_breakdown": {
+          "road_weight": 2,
+          "novelty_factor": 0,
+          "busy_road_penalty": 0,
+          "dead_end_penalty": 0,
+          "convexity_penalty": 1.74
+        },
+        "alternatives": []
+      },
+      "context": {
+        "dist_to_start_m": 173.6,
+        "remaining_budget_m": 895.6,
+        "walk_buffers_count": 13
+      }
+    },
+    {
+      "step_index": 36,
+      "from_node": 12651075619,
+      "to_node": 12651075620,
+      "segment_id": "12651075619-12651075620",
+      "segment_name": null,
+      "road_type": "residential",
+      "segment_length_m": 34.6,
+      "cumulative_distance_m": 1155.5,
+      "from_location": {
+        "lat": -37.9531237,
+        "lon": 145.0399956
+      },
+      "to_location": {
+        "lat": -37.9532878,
+        "lon": 145.0396597
+      },
+      "bearing": 238.2,
+      "turn_angle": 43.1,
+      "busy_road_adjacent": false,
+      "decision": {
+        "phase": "explore",
+        "chosen_score": 22.61,
+        "score_breakdown": {
+          "road_weight": 2,
+          "novelty_factor": 15,
+          "busy_road_penalty": 0,
+          "dead_end_penalty": 0,
+          "convexity_penalty": 5.61
+        },
+        "alternatives": []
+      },
+      "context": {
+        "dist_to_start_m": 184.8,
+        "remaining_budget_m": 879.1,
+        "walk_buffers_count": 14
+      }
+    },
+    {
+      "step_index": 37,
+      "from_node": 12651075620,
+      "to_node": 12715408828,
+      "segment_id": "12651075620-12715408828",
+      "segment_name": null,
+      "road_type": "residential",
+      "segment_length_m": 30.2,
+      "cumulative_distance_m": 1185.7,
+      "from_location": {
+        "lat": -37.9532878,
+        "lon": 145.0396597
+      },
+      "to_location": {
+        "lat": -37.9533005,
+        "lon": 145.0393207
+      },
+      "bearing": 267.3,
+      "turn_angle": 29.1,
+      "busy_road_adjacent": false,
+      "decision": {
+        "phase": "explore",
+        "chosen_score": 6.64,
+        "score_breakdown": {
+          "road_weight": 2,
+          "novelty_factor": 0,
+          "busy_road_penalty": 0,
+          "dead_end_penalty": 0,
+          "convexity_penalty": 4.64
+        },
+        "alternatives": []
+      },
+      "context": {
+        "dist_to_start_m": 219.4,
+        "remaining_budget_m": 844.5,
+        "walk_buffers_count": 15
+      }
+    },
+    {
+      "step_index": 38,
+      "from_node": 12715408828,
+      "to_node": 12715408830,
+      "segment_id": "12715408828-12715408830",
+      "segment_name": null,
+      "road_type": "residential",
+      "segment_length_m": 40.4,
+      "cumulative_distance_m": 1226.1,
+      "from_location": {
+        "lat": -37.9533005,
+        "lon": 145.0393207
+      },
+      "to_location": {
+        "lat": -37.9532418,
+        "lon": 145.0388659
+      },
+      "bearing": 279.3,
+      "turn_angle": 12.0,
+      "busy_road_adjacent": false,
+      "decision": {
+        "phase": "explore",
+        "chosen_score": 23.19,
+        "score_breakdown": {
+          "road_weight": 2,
+          "novelty_factor": 15,
+          "busy_road_penalty": 0,
+          "dead_end_penalty": 0,
+          "convexity_penalty": 6.19
+        },
+        "alternatives": []
+      },
+      "context": {
+        "dist_to_start_m": 245.9,
+        "remaining_budget_m": 814.3,
+        "walk_buffers_count": 16
+      }
+    },
+    {
+      "step_index": 39,
+      "from_node": 12715408830,
+      "to_node": 10558982650,
+      "segment_id": "10558982650-12715408830",
+      "segment_name": null,
+      "road_type": "footway",
+      "segment_length_m": 3.4,
+      "cumulative_distance_m": 1229.5,
+      "from_location": {
+        "lat": -37.9532418,
+        "lon": 145.0388659
+      },
+      "to_location": {
+        "lat": -37.9532717,
+        "lon": 145.0388598
+      },
+      "bearing": 189.1,
+      "turn_angle": -90.2,
+      "busy_road_adjacent": false,
+      "decision": {
+        "phase": "explore",
+        "chosen_score": 1.37,
+        "score_breakdown": {
+          "road_weight": 1,
+          "novelty_factor": 0,
+          "busy_road_penalty": 0,
+          "dead_end_penalty": 0,
+          "convexity_penalty": 0.37
+        },
+        "alternatives": [
+          {
+            "to_node": 12715408829,
+            "segment_id": "12715408829-12715408830",
+            "segment_name": null,
+            "road_type": "residential",
+            "score": 18.13,
+            "score_breakdown": {
+              "road_weight": 2,
+              "novelty_factor": 15,
+              "busy_road_penalty": 0,
+              "dead_end_penalty": 0,
+              "convexity_penalty": 1.13
+            },
+            "rejection_reason": null
+          },
+          {
+            "to_node": 11458873057,
+            "segment_id": "11458873057-12715408830",
+            "segment_name": null,
+            "road_type": "footway",
+            "score": null,
+            "score_breakdown": null,
+            "rejection_reason": "budget_exceeded"
+          }
+        ]
+      },
+      "context": {
+        "dist_to_start_m": 279.1,
+        "remaining_budget_m": 773.9,
+        "walk_buffers_count": 16
+      }
+    },
+    {
+      "step_index": 40,
+      "from_node": 10558982650,
+      "to_node": 10558982654,
+      "segment_id": "10558982650-10558982654",
+      "segment_name": null,
+      "road_type": "footway",
+      "segment_length_m": 183.7,
+      "cumulative_distance_m": 1413.2,
+      "from_location": {
+        "lat": -37.9532717,
+        "lon": 145.0388598
+      },
+      "to_location": {
+        "lat": -37.9549031,
+        "lon": 145.0385292
+      },
+      "bearing": 189.1,
+      "turn_angle": -0.1,
+      "busy_road_adjacent": false,
+      "decision": {
+        "phase": "explore",
+        "chosen_score": 27.4,
+        "score_breakdown": {
+          "road_weight": 1,
+          "novelty_factor": 0,
+          "busy_road_penalty": 0,
+          "dead_end_penalty": 0,
+          "convexity_penalty": 26.4
+        },
+        "alternatives": []
+      },
+      "context": {
+        "dist_to_start_m": 280.9,
+        "remaining_budget_m": 770.5,
+        "walk_buffers_count": 17
+      }
+    }
+  ],
+  "return_path": {
+    "trigger": "budget_threshold",
+    "triggered_at_step": 41,
+    "return_nodes": [
+      10558982654,
+      10558982649,
+      10558982648,
+      6239211311,
+      11031845362,
+      11031845365,
+      11031845366,
+      11031845380,
+      11031845367,
+      11031845372,
+      11031845381,
+      11031845382,
+      11031845383,
+      11031845373,
+      11031845374,
+      11031845375,
+      11031867468,
+      11031867497,
+      11031867498,
+      11031867469,
+      11031867470,
+      11031867471,
+      11031867472,
+      11031867473,
+      11031867496,
+      6182552178,
+      752190856,
+      11031867500,
+      11031867589,
+      11031867588,
+      11031867583,
+      11031867587,
+      11031867609
+    ],
+    "return_distance_m": 871.7
+  }
+}

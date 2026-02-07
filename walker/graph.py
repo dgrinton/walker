@@ -156,9 +156,6 @@ class StreetGraph:
                 if seg1.way_id != seg2.way_id:
                     continue
                 merged_length = seg1.length + seg2.length
-                # Don't merge if result would also be over threshold
-                if merged_length > max_seg:
-                    continue
                 # Don't merge if n1 == n2 (loop)
                 if n1 == n2:
                     continue
