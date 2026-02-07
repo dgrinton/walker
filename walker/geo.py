@@ -27,6 +27,38 @@ def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
     return R * c
 
 
+def point_to_segment_distance(plat: float, plon: float,
+                               alat: float, alon: float,
+                               blat: float, blon: float) -> float:
+    """Perpendicular distance from point P to line segment A-B in meters.
+
+    Uses flat-earth approximation (suitable for short distances <1km).
+    Projects P onto line A-B, clamped to the segment endpoints.
+    """
+    # Convert to flat-earth meters relative to A
+    cos_lat = math.cos(math.radians(alat))
+    ax, ay = 0.0, 0.0
+    bx = (blon - alon) * cos_lat * 111_320
+    by = (blat - alat) * 111_320
+    px = (plon - alon) * cos_lat * 111_320
+    py = (plat - alat) * 111_320
+
+    # Vector AB
+    abx = bx - ax
+    aby = by - ay
+    ab_sq = abx * abx + aby * aby
+    if ab_sq < 1e-12:
+        # Degenerate segment — return distance to A
+        return math.hypot(px - ax, py - ay)
+
+    # Parameter t of projection of P onto line AB, clamped to [0, 1]
+    t = max(0.0, min(1.0, ((px - ax) * abx + (py - ay) * aby) / ab_sq))
+    # Closest point on segment
+    cx = ax + t * abx
+    cy = ay + t * aby
+    return math.hypot(px - cx, py - cy)
+
+
 def bearing_between(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """Calculate bearing from point 1 to point 2 in degrees (0-360, 0=North)"""
     phi1 = math.radians(lat1)
@@ -208,7 +240,7 @@ def are_bearings_parallel(bearing1: float, bearing2: float, threshold: float = 3
     return diff < threshold
 
 
-def is_opposite_direction(
+def is_parallel_corridor(
     graph: "StreetGraph",
     candidate_from: int,
     candidate_to: int,
@@ -216,20 +248,15 @@ def is_opposite_direction(
     angle_threshold: float = 30,
     distance_threshold: float = 50,
 ) -> bool:
-    """Check if a candidate segment is going the opposite direction of a recent segment.
+    """Check if a candidate segment runs parallel to a recent segment.
 
-    Returns True only if:
-    - The candidate segment's bearing is ~180° from the recent segment's bearing
-      (within angle_threshold of being anti-parallel)
-    - The midpoints of the two segments are close (within distance_threshold meters)
+    Returns True if:
+    - The bearings are parallel (same OR opposite direction, within angle_threshold)
+    - The segments are close (midpoint of each within distance_threshold of the other's line)
 
-    This catches both:
+    This catches:
     - Same street name, opposite direction (definite backtracking)
-    - Parallel sidewalks/paths going opposite ways (likely backtracking)
-
-    Does NOT return True for:
-    - Continuing in the same direction (same or similar bearing)
-    - Perpendicular streets (crossing, not backtracking)
+    - Parallel sidewalks/paths in either direction (corridor duplication)
     """
     # Get node locations
     cand_from_loc = graph.get_node_location(candidate_from)
@@ -248,13 +275,8 @@ def is_opposite_direction(
         recent_from_loc[0], recent_from_loc[1], recent_to_loc[0], recent_to_loc[1]
     )
 
-    # Check if bearings are anti-parallel (approximately 180° apart)
-    bearing_diff = abs((cand_bearing - recent_bearing + 180) % 360 - 180)
-    # bearing_diff is now 0 if same direction, 180 if opposite
-    # We want to check if it's close to 180 (opposite)
-    is_anti_parallel = abs(bearing_diff - 180) < angle_threshold
-
-    if not is_anti_parallel:
+    # Check if bearings are parallel (same or opposite direction)
+    if not are_bearings_parallel(cand_bearing, recent_bearing, angle_threshold):
         return False
 
     # Calculate midpoints
@@ -263,9 +285,16 @@ def is_opposite_direction(
     recent_mid_lat = (recent_from_loc[0] + recent_to_loc[0]) / 2
     recent_mid_lon = (recent_from_loc[1] + recent_to_loc[1]) / 2
 
-    # Check if midpoints are close
-    midpoint_distance = haversine_distance(
-        cand_mid_lat, cand_mid_lon, recent_mid_lat, recent_mid_lon
+    # Check proximity: midpoint of each segment to the other's line
+    dist_cand_mid_to_recent = point_to_segment_distance(
+        cand_mid_lat, cand_mid_lon,
+        recent_from_loc[0], recent_from_loc[1],
+        recent_to_loc[0], recent_to_loc[1],
+    )
+    dist_recent_mid_to_cand = point_to_segment_distance(
+        recent_mid_lat, recent_mid_lon,
+        cand_from_loc[0], cand_from_loc[1],
+        cand_to_loc[0], cand_to_loc[1],
     )
 
-    return midpoint_distance < distance_threshold
+    return min(dist_cand_mid_to_recent, dist_recent_mid_to_cand) < distance_threshold

@@ -6,7 +6,7 @@ import networkx as nx
 
 from .config import CONFIG
 from .models import Segment
-from .geo import haversine_distance, bearing_between, are_bearings_parallel
+from .geo import haversine_distance, bearing_between, are_bearings_parallel, point_to_segment_distance
 
 
 class StreetGraph:
@@ -17,6 +17,8 @@ class StreetGraph:
         self.nodes: dict[int, tuple[float, float]] = {}  # node_id -> (lat, lon)
         self.segments: dict[str, Segment] = {}  # segment_id -> Segment
         self.parallel_segments: dict[str, set[str]] = {}  # segment_id -> set of parallel segment_ids
+        self.corridor_groups: dict[str, int] = {}  # segment_id -> corridor group_id
+        self.corridor_members: dict[int, set[str]] = {}  # group_id -> set of segment_ids
 
     def build_from_osm(self, osm_data: dict):
         """Build graph from OSM data"""
@@ -71,6 +73,7 @@ class StreetGraph:
 
         self._flag_busy_road_adjacent()
         self._compute_parallel_segments()
+        self._compute_name_corridors()
         print(f"Built graph: {len(self.nodes)} nodes, {len(self.segments)} segments")
 
     def _flag_busy_road_adjacent(self):
@@ -122,8 +125,9 @@ class StreetGraph:
         angle_threshold = CONFIG["parallel_angle_threshold"]
         min_length = CONFIG["corridor_min_segment_length"]
 
-        # Pre-compute midpoints and bearings for eligible segments
-        seg_info: list[tuple[str, Segment, float, float, float]] = []  # (id, seg, mid_lat, mid_lon, bearing)
+        # Pre-compute midpoints, bearings, and endpoints for eligible segments
+        # (id, seg, mid_lat, mid_lon, bearing, lat1, lon1, lat2, lon2)
+        seg_info: list[tuple[str, Segment, float, float, float, float, float, float, float]] = []
         for seg in self.segments.values():
             if seg.length < min_length:
                 continue
@@ -134,7 +138,8 @@ class StreetGraph:
             mid_lat = (loc1[0] + loc2[0]) / 2
             mid_lon = (loc1[1] + loc2[1]) / 2
             seg_bearing = bearing_between(loc1[0], loc1[1], loc2[0], loc2[1])
-            seg_info.append((seg.id, seg, mid_lat, mid_lon, seg_bearing))
+            seg_info.append((seg.id, seg, mid_lat, mid_lon, seg_bearing,
+                             loc1[0], loc1[1], loc2[0], loc2[1]))
 
         # Sort by latitude for pre-filtering
         seg_info.sort(key=lambda x: x[2])
@@ -146,10 +151,10 @@ class StreetGraph:
         pair_count = 0
         n = len(seg_info)
         for i in range(n):
-            id_a, seg_a, lat_a, lon_a, bearing_a = seg_info[i]
+            id_a, seg_a, lat_a, lon_a, bearing_a, a1lat, a1lon, a2lat, a2lon = seg_info[i]
             nodes_a = {seg_a.node1, seg_a.node2}
             for j in range(i + 1, n):
-                id_b, seg_b, lat_b, lon_b, bearing_b = seg_info[j]
+                id_b, seg_b, lat_b, lon_b, bearing_b, b1lat, b1lon, b2lat, b2lon = seg_info[j]
                 # Latitude pre-filter: skip if too far apart
                 if lat_b - lat_a > lat_margin:
                     break
@@ -162,8 +167,10 @@ class StreetGraph:
                 # Check bearing parallelism
                 if not are_bearings_parallel(bearing_a, bearing_b, angle_threshold):
                     continue
-                # Check midpoint proximity
-                if haversine_distance(lat_a, lon_a, lat_b, lon_b) >= proximity:
+                # Check proximity: midpoint of each segment to the other's line
+                dist_a_to_b = point_to_segment_distance(lat_a, lon_a, b1lat, b1lon, b2lat, b2lon)
+                dist_b_to_a = point_to_segment_distance(lat_b, lon_b, a1lat, a1lon, a2lat, a2lon)
+                if min(dist_a_to_b, dist_b_to_a) >= proximity:
                     continue
                 # Record bidirectional mapping
                 self.parallel_segments.setdefault(id_a, set()).add(id_b)
@@ -172,6 +179,79 @@ class StreetGraph:
 
         if pair_count:
             print(f"Detected {pair_count} parallel segment pairs for corridor deduplication")
+
+    def _compute_name_corridors(self):
+        """Group same-name segments into corridor groups based on proximity.
+
+        Segments with the same street name whose midpoints are within the
+        corridor proximity threshold are grouped together.  When any segment
+        in a group is walked, the whole group can be marked as used to prevent
+        the planner from zigzagging between parallel carriageways / footpaths
+        that share the same name.
+        """
+        from collections import defaultdict
+
+        proximity = CONFIG["corridor_name_proximity"]
+
+        # Group segments by name
+        name_to_segs: dict[str, list[tuple[Segment, float, float]]] = defaultdict(list)
+        for seg in self.segments.values():
+            if not seg.name:
+                continue
+            loc1 = self.nodes.get(seg.node1)
+            loc2 = self.nodes.get(seg.node2)
+            if not loc1 or not loc2:
+                continue
+            mid_lat = (loc1[0] + loc2[0]) / 2
+            mid_lon = (loc1[1] + loc2[1]) / 2
+            name_to_segs[seg.name].append((seg, mid_lat, mid_lon))
+
+        group_id = 0
+        for name, entries in name_to_segs.items():
+            if len(entries) < 2:
+                continue
+
+            # Build adjacency: two same-name segments are connected if
+            # midpoints are within proximity threshold
+            n = len(entries)
+            adj: list[list[int]] = [[] for _ in range(n)]
+            for i in range(n):
+                for j in range(i + 1, n):
+                    dist = haversine_distance(
+                        entries[i][1], entries[i][2],
+                        entries[j][1], entries[j][2],
+                    )
+                    if dist < proximity:
+                        adj[i].append(j)
+                        adj[j].append(i)
+
+            # BFS for connected components
+            visited = [False] * n
+            for start in range(n):
+                if visited[start]:
+                    continue
+                component: list[int] = []
+                queue = [start]
+                while queue:
+                    idx = queue.pop()
+                    if visited[idx]:
+                        continue
+                    visited[idx] = True
+                    component.append(idx)
+                    for neighbor in adj[idx]:
+                        if not visited[neighbor]:
+                            queue.append(neighbor)
+
+                if len(component) >= 2:
+                    seg_ids = {entries[i][0].id for i in component}
+                    self.corridor_members[group_id] = seg_ids
+                    for sid in seg_ids:
+                        self.corridor_groups[sid] = group_id
+                    group_id += 1
+
+        if self.corridor_members:
+            total_segs = sum(len(m) for m in self.corridor_members.values())
+            print(f"Computed {len(self.corridor_members)} name-based corridor groups ({total_segs} segments)")
 
     def find_nearest_node(self, lat: float, lon: float) -> Optional[int]:
         """Find the nearest graph node to a location"""

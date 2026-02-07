@@ -6,7 +6,7 @@ import networkx as nx
 
 from .config import CONFIG
 from .models import Segment, RecentPathContext
-from .geo import haversine_distance, bearing_between, bearing_to_compass, relative_direction, is_opposite_direction, point_in_any_polygon, segment_crosses_any_polygon
+from .geo import haversine_distance, bearing_between, bearing_to_compass, relative_direction, is_parallel_corridor, point_in_any_polygon, segment_crosses_any_polygon
 from .graph import StreetGraph
 from .history import HistoryDB
 
@@ -56,11 +56,31 @@ class RoutePlanner:
                 if self._allowed_graph.has_edge(u, v):
                     self._allowed_graph.remove_edge(u, v)
 
+    def _is_dead_end_chain(self, node: int, from_node: int) -> bool:
+        """Check if entering node leads to a dead end (no intersection) within a few steps."""
+        current = node
+        prev = from_node
+        for _ in range(CONFIG["dead_end_lookahead"]):
+            if current not in self._allowed_graph:
+                return True
+            neighbors = [n for n in self._allowed_graph.neighbors(current) if n != prev]
+            if len(neighbors) == 0:
+                return True  # Dead end
+            if len(neighbors) > 1:
+                return False  # Intersection — not a dead-end chain
+            prev = current
+            current = neighbors[0]
+        return False
+
     def _mark_segment_used(self, segment: Segment, used_segments: set[str]):
-        """Mark a segment and its parallel corridor siblings as used."""
+        """Mark a segment, its parallel siblings, and name-corridor siblings as used."""
         used_segments.add(segment.id)
         for parallel_id in self.graph.parallel_segments.get(segment.id, ()):
             used_segments.add(parallel_id)
+        # Mark all same-name corridor siblings (prevents zigzag on divided roads)
+        group_id = self.graph.corridor_groups.get(segment.id)
+        if group_id is not None:
+            used_segments.update(self.graph.corridor_members[group_id])
 
     def _return_path_weight(self, used_segments: set[str], u: int, v: int, data: dict) -> float:
         """Weight function for return path that penalizes already-used segments."""
@@ -297,18 +317,25 @@ class RoutePlanner:
         backtrack_penalty = 0
         if recent_context and recent_context.recent_segments:
             for recent_seg in recent_context.recent_segments:
-                # Only penalize if going OPPOSITE direction (not continuing forward)
-                if is_opposite_direction(
+                # Penalize parallel corridor travel (same or opposite direction)
+                if is_parallel_corridor(
                     self.graph, from_node, to_node, recent_seg,
                     CONFIG["parallel_angle_threshold"],
                     CONFIG["parallel_distance_threshold"]
                 ):
-                    # Same street name + opposite direction = definite backtrack
+                    # Same street name = definite corridor duplication
                     if segment.name and segment.name == recent_seg.segment.name:
                         backtrack_penalty += CONFIG["same_street_penalty"]
-                    # Opposite direction + close proximity = likely parallel path
+                    # Parallel + close proximity = likely parallel path
                     backtrack_penalty += CONFIG["parallel_segment_penalty"]
                     break  # One backtrack detection is enough
+
+            # Same-name penalty: avoid re-entering a street we recently walked
+            # even if geometric corridor detection doesn't fire (e.g. different
+            # position along a divided road)
+            if backtrack_penalty == 0 and segment.name:
+                if segment.name in recent_context.recent_street_names:
+                    backtrack_penalty = CONFIG["same_street_penalty"]
 
         # Distance to start (for loop completion)
         to_loc = self.graph.get_node_location(to_node)
@@ -326,7 +353,10 @@ class RoutePlanner:
         # Busy road proximity penalty for footpaths alongside busy roads
         busy_road_penalty = CONFIG["busy_road_proximity_penalty"] if segment.busy_road_adjacent else 0
 
-        return road_weight + novelty_factor + backtrack_penalty + busy_road_penalty
+        # Dead-end penalty — avoid entering chains that lead to dead ends
+        dead_end_penalty = CONFIG["dead_end_penalty"] if self._is_dead_end_chain(to_node, from_node) else 0
+
+        return road_weight + novelty_factor + backtrack_penalty + busy_road_penalty + dead_end_penalty
 
     def choose_next_direction(self, current_node: int, came_from: Optional[int] = None) -> Optional[int]:
         """Choose the best next node to walk to"""

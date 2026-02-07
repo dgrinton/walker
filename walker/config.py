@@ -30,7 +30,7 @@ CONFIG = {
     "parallel_segment_penalty": 30,
     "parallel_angle_threshold": 30,    # degrees - how close to 180° counts as opposite
     "parallel_distance_threshold": 50,  # meters - max distance between parallel segments
-    "recent_segment_history": 5,  # number of recent segments to check for backtracking
+    "recent_segment_history": 10,  # number of recent segments to check for backtracking
     # Busy road proximity penalty (for footpaths alongside busy roads)
     "busy_road_types": {"secondary", "primary", "trunk"},
     "footpath_types": {"footway", "path", "pedestrian"},
@@ -38,4 +38,7 @@ CONFIG = {
     "busy_road_proximity_penalty": 8,     # added to score (makes footway=1 effectively score like primary=9)
     "distance_milestone_interval": 250,  # meters between distance announcements
     "corridor_min_segment_length": 10,  # meters - skip short segments in corridor detection
+    "corridor_name_proximity": 200,  # meters - midpoint distance for same-name corridor grouping
+    "dead_end_lookahead": 10,  # steps to look ahead for dead-end detection
+    "dead_end_penalty": 40,  # penalty for edges leading into dead ends
 }
