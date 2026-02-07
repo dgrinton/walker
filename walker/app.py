@@ -10,7 +10,7 @@ from .models import Location
 from .logger import Logger
 from .gps import GPS, GPSRecorder, GPSPlayback
 from .debug_gui import DebugServer, WebSocketGPS
-from .geo import haversine_distance, bearing_between, bearing_to_compass, retry_with_backoff
+from .geo import haversine_distance, bearing_between, bearing_to_compass, retry_with_backoff, segment_buffer_polygon
 from .osm import OSMFetcher
 from .graph import StreetGraph
 from .history import HistoryDB
@@ -122,12 +122,20 @@ class Walker:
 
             if loc1 and loc2 and segment:
                 times_walked, _ = self.history.get_segment_history(segment.id)
+                buffer = segment_buffer_polygon(
+                    loc1[0], loc1[1], loc2[0], loc2[1],
+                    width=CONFIG["walk_buffer_width"],
+                    tip_angle=CONFIG["walk_buffer_tip_angle"],
+                    end_inset=CONFIG["walk_buffer_end_inset"],
+                    min_length=CONFIG["walk_buffer_min_length"],
+                )
                 segments.append({
                     "coords": [[loc1[0], loc1[1]], [loc2[0], loc2[1]]],
                     "name": segment.name,
                     "is_new": times_walked == 0,
                     "times_walked": times_walked,
-                    "length": segment.length
+                    "length": segment.length,
+                    "buffer": buffer,
                 })
 
         self.debug_server.send_route({

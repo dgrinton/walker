@@ -117,6 +117,7 @@ DEBUG_GUI_HTML = '''<!DOCTYPE html>
         var walkedPolyline = null;
         var routeData = null;
         var walkedNodes = [];
+        var bufferPolygon = null;
 
         // Custom icons
         var currentIcon = L.divIcon({className: 'marker-current', iconSize: [16, 16], iconAnchor: [8, 8]});
@@ -189,6 +190,22 @@ DEBUG_GUI_HTML = '''<!DOCTYPE html>
                     line.bindPopup('<b>' + (seg.name || 'unnamed') + '</b><br>' +
                                   seg.length.toFixed(0) + 'm' +
                                   (seg.is_new ? '<br><em>New!</em>' : ''));
+                    if (seg.buffer) {
+                        line.on('click', function(e) {
+                            L.DomEvent.stopPropagation(e);
+                            if (bufferPolygon) {
+                                map.removeLayer(bufferPolygon);
+                                bufferPolygon = null;
+                            }
+                            bufferPolygon = L.polygon(seg.buffer, {
+                                color: '#ef4444',
+                                weight: 2,
+                                fillColor: '#ef4444',
+                                fillOpacity: 0.2,
+                                dashArray: '6 4'
+                            }).addTo(map);
+                        });
+                    }
                 });
             }
 
@@ -286,6 +303,10 @@ DEBUG_GUI_HTML = '''<!DOCTYPE html>
 
         // Handle map clicks
         map.on('click', function(e) {
+            if (bufferPolygon) {
+                map.removeLayer(bufferPolygon);
+                bufferPolygon = null;
+            }
             if (ws && ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify({
                     type: 'location',

@@ -72,8 +72,6 @@ class StreetGraph:
                                     name=name)
 
         self._flag_busy_road_adjacent()
-        self._compute_parallel_segments()
-        self._compute_name_corridors()
         print(f"Built graph: {len(self.nodes)} nodes, {len(self.segments)} segments")
 
     def _flag_busy_road_adjacent(self):

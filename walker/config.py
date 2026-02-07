@@ -14,31 +14,28 @@ CONFIG = {
         "footway": 1,
         "pedestrian": 1,
         "path": 1,
-        "residential": 2,
-        "living_street": 2,
-        "service": 3,
-        "unclassified": 4,
-        "tertiary": 5,
-        "secondary": 7,
-        "primary": 9,
-        "trunk": 15,
+        "residential": 100,
+        "living_street": 100,
+        "service": 100,
+        "unclassified": 100,
+        "tertiary": 100,
+        "secondary": 100,
+        "primary": 100,
+        "trunk": 100,
         "motorway": 100,  # effectively blocked
     },
     "default_road_weight": 5,
-    # Backtracking penalties (to avoid zigzag on parallel streets)
-    "same_street_penalty": 25,
-    "parallel_segment_penalty": 30,
-    "parallel_angle_threshold": 30,    # degrees - how close to 180° counts as opposite
-    "parallel_distance_threshold": 50,  # meters - max distance between parallel segments
-    "recent_segment_history": 10,  # number of recent segments to check for backtracking
+    # Walk buffer polygon (anti-backtracking)
+    "walk_buffer_width": 50,       # meters - max width of hexagonal buffer around walked segments
+    "walk_buffer_tip_angle": 60,   # degrees - angle at the pointed tips of the buffer polygon
+    "walk_buffer_end_inset": 10,   # meters - pull tips inward from segment endpoints
+    "walk_buffer_min_length": 20,  # meters - skip buffer creation for segments shorter than this
     # Busy road proximity penalty (for footpaths alongside busy roads)
     "busy_road_types": {"secondary", "primary", "trunk"},
     "footpath_types": {"footway", "path", "pedestrian"},
     "busy_road_proximity_threshold": 30,  # meters
     "busy_road_proximity_penalty": 8,     # added to score (makes footway=1 effectively score like primary=9)
     "distance_milestone_interval": 250,  # meters between distance announcements
-    "corridor_min_segment_length": 10,  # meters - skip short segments in corridor detection
-    "corridor_name_proximity": 200,  # meters - midpoint distance for same-name corridor grouping
     "dead_end_lookahead": 10,  # steps to look ahead for dead-end detection
     "dead_end_penalty": 40,  # penalty for edges leading into dead ends
 }

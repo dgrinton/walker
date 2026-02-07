@@ -5,8 +5,8 @@ from typing import Optional
 import networkx as nx
 
 from .config import CONFIG
-from .models import Segment, RecentPathContext
-from .geo import haversine_distance, bearing_between, bearing_to_compass, relative_direction, is_parallel_corridor, point_in_any_polygon, segment_crosses_any_polygon
+from .models import Segment
+from .geo import haversine_distance, bearing_between, bearing_to_compass, relative_direction, point_in_any_polygon, segment_crosses_any_polygon, segment_buffer_polygon
 from .graph import StreetGraph
 from .history import HistoryDB
 
@@ -73,14 +73,20 @@ class RoutePlanner:
         return False
 
     def _mark_segment_used(self, segment: Segment, used_segments: set[str]):
-        """Mark a segment, its parallel siblings, and name-corridor siblings as used."""
+        """Mark a segment as used and create a buffer polygon around it."""
         used_segments.add(segment.id)
-        for parallel_id in self.graph.parallel_segments.get(segment.id, ()):
-            used_segments.add(parallel_id)
-        # Mark all same-name corridor siblings (prevents zigzag on divided roads)
-        group_id = self.graph.corridor_groups.get(segment.id)
-        if group_id is not None:
-            used_segments.update(self.graph.corridor_members[group_id])
+        loc1 = self.graph.get_node_location(segment.node1)
+        loc2 = self.graph.get_node_location(segment.node2)
+        if loc1 and loc2:
+            poly = segment_buffer_polygon(
+                loc1[0], loc1[1], loc2[0], loc2[1],
+                width=CONFIG["walk_buffer_width"],
+                tip_angle=CONFIG["walk_buffer_tip_angle"],
+                end_inset=CONFIG["walk_buffer_end_inset"],
+                min_length=CONFIG["walk_buffer_min_length"],
+            )
+            if poly is not None:
+                self._walk_buffers.append(poly)
 
     def _return_path_weight(self, used_segments: set[str], u: int, v: int, data: dict) -> float:
         """Weight function for return path that penalizes already-used segments."""
@@ -116,7 +122,7 @@ class RoutePlanner:
         previous = None
         distance = 0
         used_segments: set[str] = set()  # Track segments used in this route
-        recent_context = RecentPathContext.empty()  # Track recent segments for backtrack detection
+        self._walk_buffers: list[list[list[float]]] = []  # Buffer polygons around walked segments
 
         while True:
             # Get current location
@@ -162,21 +168,31 @@ class RoutePlanner:
             if not options:
                 options = neighbors
 
-            # Filter options that would take us too far to return
+            # Filter options that would take us too far to return or cross walk buffers
             valid_options = []
             for n in options:
                 n_loc = self.graph.get_node_location(n)
-                if n_loc:
-                    segment = self.graph.get_segment(current, n)
-                    seg_len = segment.length if segment else 0
-                    n_dist_to_start = haversine_distance(
-                        n_loc[0], n_loc[1], start_loc[0], start_loc[1]
-                    )
-                    new_remaining = remaining_budget - seg_len
-                    if new_remaining > n_dist_to_start * 0.9:
-                        valid_options.append(n)
+                if not n_loc:
+                    continue
+                # Skip if segment crosses any walk buffer polygon
+                if current_loc and self._walk_buffers:
+                    if segment_crosses_any_polygon(
+                        current_loc[0], current_loc[1],
+                        n_loc[0], n_loc[1],
+                        self._walk_buffers,
+                    ):
+                        continue
+                segment = self.graph.get_segment(current, n)
+                seg_len = segment.length if segment else 0
+                n_dist_to_start = haversine_distance(
+                    n_loc[0], n_loc[1], start_loc[0], start_loc[1]
+                )
+                new_remaining = remaining_budget - seg_len
+                if new_remaining > n_dist_to_start * 0.9:
+                    valid_options.append(n)
 
             if not valid_options:
+                break  # for debugging
                 # No valid options, try to go home (penalizing already-used segments)
                 try:
                     path_home = nx.shortest_path(
@@ -194,7 +210,7 @@ class RoutePlanner:
                 break
 
             # Score all valid options and pick the best
-            scored = [(n, self.score_edge(current, n, used_segments, recent_context)) for n in valid_options]
+            scored = [(n, self.score_edge(current, n, used_segments)) for n in valid_options]
             scored.sort(key=lambda x: x[1])
 
             # Pick best option
@@ -205,11 +221,6 @@ class RoutePlanner:
             if segment:
                 distance += segment.length
                 self._mark_segment_used(segment, used_segments)
-                # Track this segment in recent context for backtrack detection
-                recent_context.add_segment(
-                    segment, current, next_node,
-                    CONFIG["recent_segment_history"]
-                )
 
             route.append(next_node)
             previous = current
@@ -279,8 +290,7 @@ class RoutePlanner:
         return new_route
 
     def score_edge(self, from_node: int, to_node: int,
-                   used_segments: Optional[set[str]] = None,
-                   recent_context: Optional[RecentPathContext] = None) -> float:
+                   used_segments: Optional[set[str]] = None) -> float:
         """Score an edge - lower is better.
 
         Considers:
@@ -288,7 +298,6 @@ class RoutePlanner:
         - Road type preference
         - Whether it helps complete a loop
         - Segments already used in the current route calculation
-        - Backtracking penalty (going back on same/parallel street)
         """
         segment = self.graph.get_segment(from_node, to_node)
         if not segment:
@@ -313,30 +322,6 @@ class RoutePlanner:
         else:
             novelty_factor = 10 + (times_walked * 5)  # Penalty increases with visits
 
-        # Backtrack penalty - penalize going back on same/parallel streets
-        backtrack_penalty = 0
-        if recent_context and recent_context.recent_segments:
-            for recent_seg in recent_context.recent_segments:
-                # Penalize parallel corridor travel (same or opposite direction)
-                if is_parallel_corridor(
-                    self.graph, from_node, to_node, recent_seg,
-                    CONFIG["parallel_angle_threshold"],
-                    CONFIG["parallel_distance_threshold"]
-                ):
-                    # Same street name = definite corridor duplication
-                    if segment.name and segment.name == recent_seg.segment.name:
-                        backtrack_penalty += CONFIG["same_street_penalty"]
-                    # Parallel + close proximity = likely parallel path
-                    backtrack_penalty += CONFIG["parallel_segment_penalty"]
-                    break  # One backtrack detection is enough
-
-            # Same-name penalty: avoid re-entering a street we recently walked
-            # even if geometric corridor detection doesn't fire (e.g. different
-            # position along a divided road)
-            if backtrack_penalty == 0 and segment.name:
-                if segment.name in recent_context.recent_street_names:
-                    backtrack_penalty = CONFIG["same_street_penalty"]
-
         # Distance to start (for loop completion)
         to_loc = self.graph.get_node_location(to_node)
         start_loc = self.graph.get_node_location(self.start_node)
@@ -356,7 +341,7 @@ class RoutePlanner:
         # Dead-end penalty — avoid entering chains that lead to dead ends
         dead_end_penalty = CONFIG["dead_end_penalty"] if self._is_dead_end_chain(to_node, from_node) else 0
 
-        return road_weight + novelty_factor + backtrack_penalty + busy_road_penalty + dead_end_penalty
+        return road_weight + novelty_factor + busy_road_penalty + dead_end_penalty
 
     def choose_next_direction(self, current_node: int, came_from: Optional[int] = None) -> Optional[int]:
         """Choose the best next node to walk to"""

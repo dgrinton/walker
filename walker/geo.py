@@ -157,7 +157,7 @@ def point_in_polygon(lat: float, lon: float, polygon: list[list[float]]) -> bool
         yi, xi = polygon[i]
         yj, xj = polygon[j]
 
-        if ((yi > lon) != (yj > lon)) and (lat < (xj - xi) * (lon - yi) / (yj - yi) + xi):
+        if ((yi > lat) != (yj > lat)) and (lon < (xj - xi) * (lat - yi) / (yj - yi) + xi):
             inside = not inside
         j = i
 
@@ -218,6 +218,87 @@ def point_in_any_polygon(lat: float, lon: float, polygons: list[list[list[float]
         polygons: List of polygons, each a list of [lat, lon] pairs
     """
     return any(point_in_polygon(lat, lon, poly) for poly in polygons)
+
+
+def segment_buffer_polygon(lat1: float, lon1: float, lat2: float, lon2: float,
+                            width: float = 25, tip_angle: float = 60,
+                            end_inset: float = 10,
+                            min_length: float = 20) -> list[list[float]] | None:
+    """Create a pointed hexagonal buffer polygon around a segment.
+
+    The polygon has pointed tips inset from the segment endpoints so that
+    intersections remain accessible.  For short segments the side points
+    never reach full width, producing a 4-point diamond.
+
+    Args:
+        lat1, lon1: Start point of the segment
+        lat2, lon2: End point of the segment
+        width: Maximum width of the buffer in meters (default 25m)
+        tip_angle: Angle at the pointed tips in degrees (default 60°)
+        end_inset: Distance in meters to pull tips inward from endpoints (default 10m)
+        min_length: Segments shorter than this produce no polygon (default 20m)
+
+    Returns:
+        List of [lat, lon] pairs defining the polygon vertices, or None if
+        the segment is too short.
+    """
+    half_width = width / 2
+    taper = half_width / math.tan(math.radians(tip_angle / 2))
+
+    # Flat-earth conversion relative to midpoint
+    mid_lat = (lat1 + lat2) / 2
+    cos_lat = math.cos(math.radians(mid_lat))
+    m_per_deg_lon = 111_320 * cos_lat
+    m_per_deg_lat = 111_320
+
+    # Segment vector in meters
+    dx = (lon2 - lon1) * m_per_deg_lon
+    dy = (lat2 - lat1) * m_per_deg_lat
+    seg_len = math.hypot(dx, dy)
+
+    if seg_len < min_length:
+        return None
+
+    # Unit vectors along and perpendicular to segment
+    ux, uy = dx / seg_len, dy / seg_len  # along segment (A→B)
+    px, py = -uy, ux  # perpendicular (left side when facing A→B)
+
+    def offset_point(base_lat, base_lon, along_m, perp_m):
+        """Offset a point by along_m along the segment and perp_m perpendicular."""
+        total_dx = along_m * ux + perp_m * px
+        total_dy = along_m * uy + perp_m * py
+        return [base_lat + total_dy / m_per_deg_lat,
+                base_lon + total_dx / m_per_deg_lon]
+
+    # Tip positions are inset from the endpoints
+    tip_a = offset_point(lat1, lon1, end_inset, 0)
+    tip_b = offset_point(lat2, lon2, -end_inset, 0)
+
+    # Effective length between the two tips
+    inner_len = seg_len - 2 * end_inset
+    if inner_len < 1e-6:
+        return None
+
+    if inner_len >= 2 * taper:
+        # 6-point hexagon
+        return [
+            tip_a,                                                 # Tip A
+            offset_point(lat1, lon1, end_inset + taper, half_width),   # Left side near A
+            offset_point(lat2, lon2, -(end_inset + taper), half_width),  # Left side near B
+            tip_b,                                                 # Tip B
+            offset_point(lat2, lon2, -(end_inset + taper), -half_width),  # Right side near B
+            offset_point(lat1, lon1, end_inset + taper, -half_width),  # Right side near A
+        ]
+    else:
+        # 4-point diamond: inner length too short for full width
+        mid_width = (inner_len / 2) * math.tan(math.radians(tip_angle / 2))
+        mid_lon = (lon1 + lon2) / 2
+        return [
+            tip_a,                                                 # Tip A
+            offset_point(mid_lat, mid_lon, 0, mid_width),          # Left midpoint
+            tip_b,                                                 # Tip B
+            offset_point(mid_lat, mid_lon, 0, -mid_width),         # Right midpoint
+        ]
 
 
 def are_bearings_parallel(bearing1: float, bearing2: float, threshold: float = 30) -> bool:
