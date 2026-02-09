@@ -1,6 +1,6 @@
 {
-  "current_iteration": 5,
-  "status": "paused",
+  "current_iteration": 6,
+  "status": "complete",
   "branch": "autonomous-route-improver",
   "route_files": [
     {"file": "routes/route_001.json", "iteration": 0, "label": "baseline"},
@@ -8,12 +8,9 @@
     {"file": "routes/route_003.json", "iteration": 2, "label": "virtual_edges_15m"},
     {"file": "routes/route_004.json", "iteration": 3, "label": "convexity_bias"},
     {"file": "routes/route_005.json", "iteration": 4, "label": "simplification_and_weight_rebalance"},
-    {"file": "routes/route_006.json", "iteration": 5, "label": "better_simplification_and_buffers"}
-  ],
-  "planned_improvements": [
-    "dead_end_hard_exclusion",
-    "cross_way_simplification",
-    "convexity_tuning"
+    {"file": "routes/route_006.json", "iteration": 5, "label": "better_simplification_and_buffers"},
+    {"file": "routes/route_023.json", "iteration": 6, "label": "loop_steering_5km"},
+    {"file": "routes/route_024.json", "iteration": 6, "label": "loop_steering_2km"}
   ],
   "completed_improvements": [
     "restore_return_home",
@@ -21,7 +18,14 @@
     "convexity_bias",
     "intersection_simplification",
     "road_weight_rebalance",
-    "relax_walk_buffers"
+    "relax_walk_buffers",
+    "loop_steering",
+    "scenic_return_path",
+    "buffer_relaxation_after_onset",
+    "buffer_width_scaling",
+    "visited_node_penalty",
+    "osm_caching",
+    "scaled_fetch_radius"
   ],
-  "next_action": "Continue with dead_end_hard_exclusion or cross_way_simplification based on analysis of route_006"
+  "next_action": "Evaluate route quality at different distances and start locations"
 }

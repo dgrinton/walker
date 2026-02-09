@@ -236,3 +236,51 @@ The baseline analysis identified road weights as the primary issue. With footway
 ### Priority for next iteration
 
 The system is now functional and producing reasonable routes. Pausing for evaluation.
+
+---
+
+## Iteration 6: Loop steering + scenic return + OSM caching
+
+**Route files:** `routes/route_023.json` (5km), `routes/route_024.json` (2km)
+**Date:** 2026-02-08
+**Changes:**
+1. **Loop steering** replaces convexity bias: after onset (15% of distance), penalizes edges proportional to their absolute distance from start (not just delta). Creates strong homeward pull in second half.
+2. **Scenic return path**: `_return_path_weight` now penalizes historically-walked segments (5x for route-used, 1+0.5*walks for walked), making the return explore novel streets.
+3. **Buffer relaxation after onset**: Walk buffers are disabled after 15% of the walk. Anti-zigzag protection remains for early steps; later the planner relies on `visited_node_penalty` + `novelty_factor`.
+4. **Buffer width scaling**: For walks > 2km, buffer width scales down (`max(15, 30 * 2000/target)`). A 5km walk uses 15m buffers.
+5. **Visited-node penalty**: `visited_node_penalty=15` per prior visit to target node (trap avoidance).
+6. **OSM data caching**: Responses cached to `osm_cache/` for 7 days. A covering cache (larger radius, nearby center) is reused. Eliminates repeated API calls during testing.
+7. **Scaled fetch radius**: `max(1500, target_distance * 0.6)` — 5km walk fetches 3000m radius, 10km fetches 6000m.
+8. **Scaled Overpass timeout**: `max(30, radius / 50)` seconds for larger queries.
+
+### Result (5km walk)
+
+| Metric | Route 006 (2km) | Route 023 (5km) | Route 024 (2km) |
+|--------|-----------------|-----------------|-----------------|
+| Distance | 2285m | 4984m | 1802m |
+| Target | 2000m | 5000m | 2000m |
+| Utilization | 114% | 99.7% | 90% |
+| Explore distance | 1413m | 4648m | 1734m |
+| Return distance | 872m (38%) | 337m (7%) | 68m (4%) |
+| Return trigger | budget_threshold | budget_threshold | no_valid_options |
+| Max dist from start | 411m | 808m | 435m |
+| Dist at explore end | 411m | 226m | 60m |
+| Return shared segs | ? | 0/12 (0%) | ? |
+
+### Analysis
+
+**Loop steering is the breakthrough.** The distance-from-start penalty creates a smooth trajectory: explore outward for the first third, then the increasing penalty curves the route homeward. At 5km, the explore phase covers 4648m and ends just 226m from start — the route nearly closes on its own with only 337m shortest-path return needed.
+
+**Return path at 7% (5km) and 4% (2km)** — dramatically better than the previous 33-38%. The route IS the loop now, not an out-and-back with a long return.
+
+**Buffer relaxation was critical.** Without it, the route ran out of options at ~1300m regardless of target distance. Disabling buffers after onset (15%) and relying on visited_node_penalty + novelty scoring prevents both zigzagging and boxing-in.
+
+**OSM caching eliminates repeated API calls.** Cache covers any request within the cached circle, with 7-day expiry. The covering-circle check (`cached_radius >= dist + requested_radius`) means a 3000m cache also covers any 1500m request from the same area.
+
+### Lessons learned
+
+- Distance-based penalty (abs dist to start) >> delta-based (moving away/toward) for loop steering
+- Tangent-based steering doesn't work in grid road networks
+- Walk buffers must be relaxed for longer walks or the route boxes itself in
+- OSM fetch radius must scale with target distance
+- The 2km target was too short to evaluate loop quality — 5km+ reveals the real behavior

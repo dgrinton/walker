@@ -1,5 +1,9 @@
 """Street graph representation."""
 
+import hashlib
+import json
+import os
+import time
 from typing import Optional
 
 import networkx as nx
@@ -7,6 +11,9 @@ import networkx as nx
 from .config import CONFIG
 from .models import Segment
 from .geo import haversine_distance, bearing_between, are_bearings_parallel, point_to_segment_distance, _segments_intersect
+
+GRAPH_CACHE_DIR = os.path.join(os.path.dirname(__file__), "..", "osm_cache")
+GRAPH_CACHE_MAX_AGE = 7 * 24 * 3600  # 7 days
 
 
 class StreetGraph:
@@ -20,8 +27,95 @@ class StreetGraph:
         self.corridor_groups: dict[str, int] = {}  # segment_id -> corridor group_id
         self.corridor_members: dict[int, set[str]] = {}  # group_id -> set of segment_ids
 
+    @staticmethod
+    def _osm_cache_key(osm_data: dict) -> str:
+        """Compute a stable hash for OSM data + relevant config values."""
+        # Include config values that affect graph building
+        config_keys = [
+            "road_weights", "default_road_weight", "busy_road_types",
+            "busy_road_proximity_threshold",
+            "busy_road_proximity_penalty", "busy_road_crossing_penalty",
+            "simplify_max_segment",
+            "virtual_edge_max_distance",
+        ]
+        config_snapshot = {k: CONFIG.get(k) for k in config_keys}
+        # Convert sets to sorted lists for JSON serialization
+        for k, v in config_snapshot.items():
+            if isinstance(v, set):
+                config_snapshot[k] = sorted(v)
+
+        elements = osm_data.get("elements", [])
+        hasher = hashlib.sha256()
+        hasher.update(json.dumps(len(elements), sort_keys=True).encode())
+        # Hash element IDs and types — fast proxy for content identity
+        for el in elements:
+            hasher.update(f"{el.get('type')}:{el.get('id')}".encode())
+        hasher.update(json.dumps(config_snapshot, sort_keys=True).encode())
+        return hasher.hexdigest()[:16]
+
+    def _try_load_cache(self, cache_key: str) -> bool:
+        """Try to load a cached graph. Returns True on success."""
+        os.makedirs(GRAPH_CACHE_DIR, exist_ok=True)
+        cache_path = os.path.join(GRAPH_CACHE_DIR, f"graph_{cache_key}.json")
+        if not os.path.exists(cache_path):
+            return False
+        try:
+            age = time.time() - os.path.getmtime(cache_path)
+            if age > GRAPH_CACHE_MAX_AGE:
+                os.remove(cache_path)
+                return False
+            with open(cache_path, "r") as f:
+                data = json.load(f)
+            # Restore nodes
+            self.nodes = {int(k): tuple(v) for k, v in data["nodes"].items()}
+            # Restore segments
+            for sd in data["segments"]:
+                seg = Segment(
+                    id=sd["id"], node1=sd["node1"], node2=sd["node2"],
+                    way_id=sd["way_id"], name=sd.get("name"),
+                    road_type=sd["road_type"], length=sd["length"],
+                    busy_road_adjacent=sd.get("busy_road_adjacent", False),
+                    busy_road_crossing=sd.get("busy_road_crossing", False),
+                )
+                self.segments[seg.id] = seg
+            # Restore graph edges
+            for ed in data["edges"]:
+                self.graph.add_edge(ed["n1"], ed["n2"], **ed["attrs"])
+            return True
+        except (json.JSONDecodeError, KeyError, TypeError):
+            return False
+
+    def _save_cache(self, cache_key: str):
+        """Save the built graph to disk cache."""
+        os.makedirs(GRAPH_CACHE_DIR, exist_ok=True)
+        cache_path = os.path.join(GRAPH_CACHE_DIR, f"graph_{cache_key}.json")
+        data = {
+            "nodes": {str(k): list(v) for k, v in self.nodes.items()},
+            "segments": [
+                {
+                    "id": s.id, "node1": s.node1, "node2": s.node2,
+                    "way_id": s.way_id, "name": s.name,
+                    "road_type": s.road_type, "length": s.length,
+                    "busy_road_adjacent": s.busy_road_adjacent,
+                    "busy_road_crossing": s.busy_road_crossing,
+                }
+                for s in self.segments.values()
+            ],
+            "edges": [
+                {"n1": u, "n2": v, "attrs": dict(d)}
+                for u, v, d in self.graph.edges(data=True)
+            ],
+        }
+        with open(cache_path, "w") as f:
+            json.dump(data, f)
+
     def build_from_osm(self, osm_data: dict):
-        """Build graph from OSM data"""
+        """Build graph from OSM data, using disk cache when available."""
+        cache_key = self._osm_cache_key(osm_data)
+
+        if self._try_load_cache(cache_key):
+            print(f"Loaded graph from cache: {len(self.nodes)} nodes, {len(self.segments)} segments")
+            return
 
         # First pass: collect all nodes
         for element in osm_data.get("elements", []):
@@ -71,49 +165,90 @@ class StreetGraph:
                                     road_type=road_type,
                                     name=name)
 
-        self._flag_busy_road_adjacent()
         self._simplify_degree2_chains()
         if CONFIG.get("virtual_edge_max_distance", 0) > 0:
             self._add_virtual_edges()
+        self._flag_busy_road_adjacent()  # After simplification so final segments get correct flags
         print(f"Built graph: {len(self.nodes)} nodes, {len(self.segments)} segments")
+        self._save_cache(cache_key)
 
     def _flag_busy_road_adjacent(self):
-        """Flag footpath segments that run alongside busy roads."""
+        """Flag segments that run alongside or cross busy roads.
+
+        Two flags are set on segments:
+        - busy_road_adjacent: midpoint is within proximity threshold of a busy road
+        - busy_road_crossing: shares a node with a busy road segment (crossing point)
+
+        Applies to ALL non-busy road types (not just footpaths), since residential
+        streets and service roads alongside a highway are also unpleasant.
+
+        Uses a grid-based spatial index to avoid O(n×m) haversine calls.
+        """
         busy_road_types = CONFIG["busy_road_types"]
-        footpath_types = CONFIG["footpath_types"]
         threshold = CONFIG["busy_road_proximity_threshold"]
 
-        # Collect midpoints of all busy road segments
-        busy_midpoints = []
+        # Grid cell size in degrees — ~threshold meters at mid-latitudes
+        cell_size = threshold / 111_320.0
+
+        # Collect midpoints of all busy road segments into a grid
+        grid: dict[tuple[int, int], list[tuple[float, float]]] = {}
+        busy_road_nodes: set[int] = set()
         for segment in self.segments.values():
             if segment.road_type in busy_road_types:
+                busy_road_nodes.add(segment.node1)
+                busy_road_nodes.add(segment.node2)
                 loc1 = self.nodes.get(segment.node1)
                 loc2 = self.nodes.get(segment.node2)
                 if loc1 and loc2:
-                    mid = ((loc1[0] + loc2[0]) / 2, (loc1[1] + loc2[1]) / 2)
-                    busy_midpoints.append(mid)
+                    mid_lat = (loc1[0] + loc2[0]) / 2
+                    mid_lon = (loc1[1] + loc2[1]) / 2
+                    ci = int(mid_lat / cell_size)
+                    cj = int(mid_lon / cell_size)
+                    grid.setdefault((ci, cj), []).append((mid_lat, mid_lon))
 
-        if not busy_midpoints:
+        if not grid:
             return
 
-        # Check each footpath segment against busy road midpoints
-        flagged = 0
+        # Check each non-busy segment for adjacency and crossing
+        flagged_adj = 0
+        flagged_cross = 0
         for segment in self.segments.values():
-            if segment.road_type not in footpath_types:
-                continue
+            if segment.road_type in busy_road_types:
+                continue  # Don't flag busy roads themselves
+
+            # Crossing detection: segment shares a node with a busy road
+            if segment.node1 in busy_road_nodes or segment.node2 in busy_road_nodes:
+                segment.busy_road_crossing = True
+                flagged_cross += 1
+
+            # Proximity detection
             loc1 = self.nodes.get(segment.node1)
             loc2 = self.nodes.get(segment.node2)
             if not loc1 or not loc2:
                 continue
-            mid = ((loc1[0] + loc2[0]) / 2, (loc1[1] + loc2[1]) / 2)
-            for busy_mid in busy_midpoints:
-                if haversine_distance(mid[0], mid[1], busy_mid[0], busy_mid[1]) < threshold:
-                    segment.busy_road_adjacent = True
-                    flagged += 1
+            mid_lat = (loc1[0] + loc2[0]) / 2
+            mid_lon = (loc1[1] + loc2[1]) / 2
+            ci = int(mid_lat / cell_size)
+            cj = int(mid_lon / cell_size)
+            found = False
+            for di in (-1, 0, 1):
+                if found:
                     break
+                for dj in (-1, 0, 1):
+                    cell = grid.get((ci + di, cj + dj))
+                    if not cell:
+                        continue
+                    for busy_mid in cell:
+                        if haversine_distance(mid_lat, mid_lon, busy_mid[0], busy_mid[1]) < threshold:
+                            segment.busy_road_adjacent = True
+                            flagged_adj += 1
+                            found = True
+                            break
+                    if found:
+                        break
 
-        if flagged:
-            print(f"Flagged {flagged} footpath segments adjacent to busy roads")
+        if flagged_adj or flagged_cross:
+            print(f"Flagged {flagged_adj} segments adjacent to busy roads, {flagged_cross} crossing busy roads")
 
     def _simplify_degree2_chains(self):
         """Contract degree-2 nodes where both adjacent segments are short.
@@ -128,77 +263,90 @@ class StreetGraph:
         - Both segments share the same road_type
         - Both segments are under max length
         - The merged segment would also be under max length
+
+        Uses a queue to avoid restarting full node iteration after each merge.
         """
+        from collections import deque
+
         max_seg = CONFIG["simplify_max_segment"]
         removed = 0
 
-        # Iterate until no more contractions are possible
-        changed = True
-        while changed:
-            changed = False
-            for node_id in list(self.graph.nodes):
-                if node_id not in self.graph:
-                    continue
-                if self.graph.degree(node_id) != 2:
-                    continue
-                neighbors = list(self.graph.neighbors(node_id))
-                n1, n2 = neighbors[0], neighbors[1]
+        # Seed the queue with all degree-2 nodes
+        queue = deque(
+            nid for nid in self.graph.nodes if self.graph.degree(nid) == 2
+        )
+        in_queue = set(queue)
 
-                seg1 = self.get_segment(node_id, n1)
-                seg2 = self.get_segment(node_id, n2)
-                if not seg1 or not seg2:
-                    continue
-                # Only merge short segments of the same road type and OSM way
-                if seg1.length > max_seg or seg2.length > max_seg:
-                    continue
-                if seg1.road_type != seg2.road_type:
-                    continue
-                if seg1.way_id != seg2.way_id:
-                    continue
-                merged_length = seg1.length + seg2.length
-                # Don't merge if n1 == n2 (loop)
-                if n1 == n2:
-                    continue
-                # Already connected — skip
-                if self.graph.has_edge(n1, n2):
-                    continue
+        while queue:
+            node_id = queue.popleft()
+            in_queue.discard(node_id)
 
-                # Merge: create new segment n1—n2
-                merged_name = seg1.name or seg2.name
-                merged_way_id = seg1.way_id
-                merged_road_type = seg1.road_type
-                merged_busy = seg1.busy_road_adjacent or seg2.busy_road_adjacent
+            if node_id not in self.graph:
+                continue
+            if self.graph.degree(node_id) != 2:
+                continue
 
-                new_seg_id = Segment.make_id(n1, n2)
-                new_segment = Segment(
-                    id=new_seg_id,
-                    node1=min(n1, n2),
-                    node2=max(n1, n2),
-                    way_id=merged_way_id,
-                    name=merged_name,
-                    road_type=merged_road_type,
-                    length=merged_length,
-                    busy_road_adjacent=merged_busy,
-                )
-                self.segments[new_seg_id] = new_segment
+            neighbors = list(self.graph.neighbors(node_id))
+            n1, n2 = neighbors[0], neighbors[1]
 
-                weight = CONFIG["road_weights"].get(merged_road_type, CONFIG["default_road_weight"])
-                self.graph.add_edge(n1, n2,
-                                    segment_id=new_seg_id,
-                                    length=merged_length,
-                                    weight=weight * merged_length,
-                                    road_type=merged_road_type,
-                                    name=merged_name)
+            seg1 = self.get_segment(node_id, n1)
+            seg2 = self.get_segment(node_id, n2)
+            if not seg1 or not seg2:
+                continue
+            # Only merge short segments of the same road type and OSM way
+            if seg1.length > max_seg or seg2.length > max_seg:
+                continue
+            if seg1.road_type != seg2.road_type:
+                continue
+            if seg1.way_id != seg2.way_id:
+                continue
+            merged_length = seg1.length + seg2.length
+            # Don't merge if n1 == n2 (loop)
+            if n1 == n2:
+                continue
+            # Already connected — skip
+            if self.graph.has_edge(n1, n2):
+                continue
 
-                # Remove old segments and node
-                del self.segments[seg1.id]
-                del self.segments[seg2.id]
-                self.graph.remove_node(node_id)
-                del self.nodes[node_id]
+            # Merge: create new segment n1—n2
+            merged_name = seg1.name or seg2.name
+            merged_way_id = seg1.way_id
+            merged_road_type = seg1.road_type
 
-                removed += 1
-                changed = True
-                break  # Restart iteration after mutation
+            new_seg_id = Segment.make_id(n1, n2)
+            new_segment = Segment(
+                id=new_seg_id,
+                node1=min(n1, n2),
+                node2=max(n1, n2),
+                way_id=merged_way_id,
+                name=merged_name,
+                road_type=merged_road_type,
+                length=merged_length,
+            )
+            self.segments[new_seg_id] = new_segment
+
+            weight = CONFIG["road_weights"].get(merged_road_type, CONFIG["default_road_weight"])
+            self.graph.add_edge(n1, n2,
+                                segment_id=new_seg_id,
+                                length=merged_length,
+                                weight=weight * merged_length,
+                                road_type=merged_road_type,
+                                name=merged_name)
+
+            # Remove old segments and node
+            del self.segments[seg1.id]
+            del self.segments[seg2.id]
+            self.graph.remove_node(node_id)
+            del self.nodes[node_id]
+
+            removed += 1
+
+            # After merging, n1 or n2 may now be degree-2 — re-check them
+            for neighbor in (n1, n2):
+                if neighbor in self.graph and self.graph.degree(neighbor) == 2:
+                    if neighbor not in in_queue:
+                        queue.append(neighbor)
+                        in_queue.add(neighbor)
 
         if removed:
             print(f"Simplified {removed} degree-2 nodes (max segment {max_seg}m)")

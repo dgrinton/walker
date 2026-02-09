@@ -12,6 +12,17 @@ trace_map.html
 test*.json
 replay_data.json
 
+# Route artifacts (generated data)
+routes/*.html
+routes/*.json
+
+# Debug HTML
+debug_parallels.html
+test_route.html
+
+# OSM cache
+osm_cache/
+
 # Python
 __pycache__/
 venv/

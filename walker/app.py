@@ -202,9 +202,12 @@ class Walker:
         # Fetch OSM data with retry and backoff (up to 30s)
         osm_data = None
 
+        # Scale fetch radius with target distance (need enough road network for longer walks)
+        fetch_radius = max(CONFIG["osm_fetch_radius"], target_distance * 0.6)
+
         def try_osm():
             data = OSMFetcher.fetch_streets(
-                location.lat, location.lon, CONFIG["osm_fetch_radius"]
+                location.lat, location.lon, fetch_radius
             )
             if data.get("elements"):
                 self.logger.log("OSM data fetched", {"elements": len(data["elements"])})

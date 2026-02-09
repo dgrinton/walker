@@ -123,8 +123,7 @@ def generate_html(route_data: dict) -> str:
         <div class="legend">
             <div class="legend-item"><div class="legend-color" style="background: #22c55e;"></div> New segment</div>
             <div class="legend-item"><div class="legend-color" style="background: #3b82f6;"></div> Previously walked</div>
-            <div class="legend-item"><div class="legend-color" style="background: #1a6b3a;"></div> Return path (new)</div>
-            <div class="legend-item"><div class="legend-color" style="background: #1e4a8a;"></div> Return path (walked)</div>
+            <div class="legend-item"><div class="legend-color" style="background: #f59e0b;"></div> Return path</div>
         </div>
         <div id="step-detail">
             <h3 id="sd-title">Step</h3>
@@ -183,6 +182,20 @@ def generate_html(route_data: dict) -> str:
             }});
             lines.push(line);
         }});
+
+        // Draw return path polyline (if locations are available)
+        if (returnPath && returnPath.return_locations && returnPath.return_locations.length > 1) {{
+            var returnCoords = returnPath.return_locations.map(function(loc) {{
+                return [loc.lat, loc.lon];
+            }});
+            returnCoords.forEach(function(c) {{ bounds.push(c); }});
+            L.polyline(returnCoords, {{
+                color: '#f59e0b',
+                weight: 5,
+                opacity: 0.85,
+                dashArray: '8, 6'
+            }}).addTo(map).bindPopup('Return path (' + returnPath.return_distance_m.toFixed(0) + 'm)');
+        }}
 
         // Start marker
         if (steps.length > 0) {{
