@@ -45,6 +45,7 @@ CONFIG = {
     "loop_steering_weight": 10,            # max penalty for worst-direction edge (180° off ideal)
     "loop_steering_dist_weight": 0.03,     # penalty per meter beyond ideal loop radius
     "visited_node_penalty": 15, # penalty per previous visit to target node (trap escape)
+    "homeward_bonus_weight": 0.15,  # per-meter bonus for moving closer to start (scales with progress²)
     "parallel_segment_penalty": 20,  # penalty for edges running parallel/opposite to walked segments
     "parallel_segment_proximity": 25,  # meters — max distance for parallel-segment detection
     # Intersection simplification

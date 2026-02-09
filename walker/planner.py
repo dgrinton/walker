@@ -235,8 +235,10 @@ class RoutePlanner:
             )
             remaining_budget = target_distance - distance
 
-            # Head home when: enough distance walked AND not enough budget for scenic return
-            if distance >= target_distance * 0.5 and remaining_budget < dist_to_start * 1.5:
+            # Safety net: force return when budget is nearly exhausted.
+            # The homeward_bonus in score_edge handles the gradual return;
+            # this only fires when the greedy walk hasn't made it home in time.
+            if distance >= target_distance * 0.7 and remaining_budget < dist_to_start * 1.2:
                 # Find path back to start (penalizing already-used segments)
                 try:
                     path_home = nx.shortest_path(
@@ -698,7 +700,11 @@ class RoutePlanner:
         # Two components:
         # 1. Bearing: ideal bearing sweeps 360° over the walk
         # 2. Distance: penalize being too far from start (beyond ideal loop radius)
+        # Plus a homeward bonus that ramps up in the second half, so the route
+        # naturally returns home through scored edges (same quality criteria as
+        # exploration) rather than switching to a separate return-path mode.
         convexity_penalty = 0
+        homeward_bonus = 0
         progress = self.walked_distance / self.target_distance if self.target_distance > 0 else 0
         if self._initial_bearing is not None and to_loc and start_loc:
             from_loc = self.graph.get_node_location(from_node)
@@ -722,6 +728,20 @@ class RoutePlanner:
                 dist_penalty = excess * CONFIG["loop_steering_dist_weight"]
 
                 convexity_penalty = bearing_penalty + dist_penalty
+
+                # Homeward bonus: after 50% progress, reward edges that reduce
+                # distance to start. Ramps up quadratically so the last 20%
+                # of the walk strongly favours heading home.
+                if progress > 0.5:
+                    from_dist = haversine_distance(
+                        from_loc[0], from_loc[1], start_loc[0], start_loc[1]
+                    )
+                    # Positive = moving closer to start (good)
+                    dist_reduction = from_dist - to_dist
+                    ramp = ((progress - 0.5) / 0.5) ** 2  # 0 at 50%, 1 at 100%
+                    weight = CONFIG["homeward_bonus_weight"] * ramp
+                    # Bonus (negative penalty) for moving closer, penalty for moving away
+                    homeward_bonus = -dist_reduction * weight
 
         # Visited-node penalty — discourage revisiting nodes already in the route
         visited_penalty = 0
@@ -753,7 +773,7 @@ class RoutePlanner:
                         parallel_penalty = CONFIG["parallel_segment_penalty"]
                         break
 
-        score = road_weight + novelty_factor + busy_road_penalty + dead_end_penalty + convexity_penalty + visited_penalty + parallel_penalty
+        score = road_weight + novelty_factor + busy_road_penalty + dead_end_penalty + convexity_penalty + visited_penalty + parallel_penalty + homeward_bonus
 
         if return_breakdown:
             return score, {
@@ -764,6 +784,7 @@ class RoutePlanner:
                 "convexity_penalty": round(convexity_penalty, 2),
                 "visited_penalty": visited_penalty,
                 "parallel_penalty": parallel_penalty,
+                "homeward_bonus": round(homeward_bonus, 2),
             }
         return score
 
