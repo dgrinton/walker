@@ -65,6 +65,7 @@ class Walker:
         # Verbose mode timing
         self.last_distance_milestone = 0
         self.last_log_update = 0
+        self.last_direction_speak = 0
         self.walk_start_time = 0
 
         # GPS source (can be swapped for recording/playback)
@@ -154,6 +155,12 @@ class Walker:
         if now - self.last_log_update >= CONFIG["log_interval"]:
             self.logger.log("STATE", self.get_state())
             self.last_log_update = now
+
+        # Speak direction to next waypoint every 30 seconds
+        if (self.next_node and not self.debug_gui
+                and now - self.last_direction_speak >= CONFIG["direction_speak_interval"]):
+            self._speak_status()
+            self.last_direction_speak = now
 
     def initialize(self, target_distance: float) -> bool:
         """Initialize walk with GPS fix and map data"""
@@ -873,6 +880,7 @@ class Walker:
             # Immediate audio update with directions to next waypoint
             if self.next_node:
                 self._speak_waypoint_reached()
+                self.last_direction_speak = time.time()
 
             if not self.next_node:
                 # Count any remaining segments to end of route

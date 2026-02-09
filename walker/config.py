@@ -8,6 +8,7 @@ CONFIG = {
     "default_walk_distance": 2000,  # meters (2km default)
     "osm_fetch_radius": 1500,  # meters - area to fetch from OSM
     "log_interval": 10,  # seconds between log entries
+    "direction_speak_interval": 30,  # seconds between periodic direction announcements
     "min_waypoint_distance": 20,  # meters - skip waypoints closer than this
     # Road type weights (lower = preferred)
     "road_weights": {
